@@ -1073,6 +1073,613 @@ CORS_ORIGIN=http://localhost:3000,https://your-frontend-domain.com
 
 ---
 
+## Settings Endpoints
+
+The Settings API provides site-wide configuration management including contact information, calculator pricing, form definitions, and integrations.
+
+### Get Public Settings
+
+**GET** `/api/settings/public`
+
+Get sanitized settings for public consumption (no secrets).
+
+**No Authentication Required**
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Public settings retrieved successfully",
+  "data": {
+    "site": {
+      "name": "3D Print Pro",
+      "description": "Профессиональная 3D печать любой сложности",
+      "contact": {
+        "email": "info@3dprintpro.ru",
+        "phone": "+7 (999) 123-45-67",
+        "address": "г. Москва, ул. Примерная, д. 123",
+        "working_hours": "Пн-Пт: 9:00 - 18:00\nСб-Вс: Выходной"
+      },
+      "social_links": {
+        "vk": "",
+        "telegram": "https://t.me/PrintPro_Omsk",
+        "whatsapp": "",
+        "youtube": ""
+      },
+      "theme": {
+        "mode": "light",
+        "color_primary": "#6366f1",
+        "color_secondary": "#ec4899"
+      }
+    },
+    "calculator": {
+      "materials": [
+        {
+          "key": "pla",
+          "name": "PLA",
+          "price": 50.00,
+          "technology": "fdm"
+        }
+      ],
+      "additional_services": [
+        {
+          "key": "modeling",
+          "name": "3D моделирование",
+          "price": 500.00,
+          "unit": "час"
+        }
+      ],
+      "quality_levels": [
+        {
+          "key": "normal",
+          "name": "Нормальное",
+          "price_multiplier": 1.00,
+          "time_multiplier": 1.00
+        }
+      ],
+      "volume_discounts": [
+        {
+          "min_quantity": 10,
+          "discount_percent": 10.00
+        }
+      ]
+    },
+    "forms": {
+      "contact": [
+        {
+          "name": "name",
+          "label": "Ваше имя",
+          "type": "text",
+          "required": true,
+          "placeholder": "Иван Петров",
+          "options": []
+        }
+      ],
+      "order": []
+    },
+    "integrations": {
+      "telegram": {
+        "enabled": true,
+        "contact_url": "https://t.me/PrintPro_Omsk"
+      }
+    }
+  }
+}
+```
+
+### Get Admin Settings
+
+**GET** `/api/settings`
+
+Get full settings with redacted secrets. Requires admin authentication.
+
+**Authentication:** Required (Admin role)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Admin settings retrieved successfully",
+  "data": {
+    "site": {
+      "name": "3D Print Pro",
+      "description": "Профессиональная 3D печать любой сложности",
+      "contact": {
+        "email": "info@3dprintpro.ru",
+        "phone": "+7 (999) 123-45-67",
+        "address": "г. Москва, ул. Примерная, д. 123",
+        "working_hours": "Пн-Пт: 9:00 - 18:00\nСб-Вс: Выходной"
+      },
+      "social_links": {
+        "vk": "",
+        "telegram": "https://t.me/PrintPro_Omsk",
+        "whatsapp": "",
+        "youtube": ""
+      },
+      "theme": {
+        "mode": "light",
+        "color_primary": "#6366f1",
+        "color_secondary": "#ec4899"
+      },
+      "notifications": {
+        "newOrders": true,
+        "newReviews": true,
+        "newMessages": true
+      },
+      "timezone": "Europe/Moscow"
+    },
+    "calculator": {
+      "materials": [
+        {
+          "id": 1,
+          "material_key": "pla",
+          "name": "PLA",
+          "price": "50.00",
+          "technology": "fdm",
+          "active": 1,
+          "display_order": 1,
+          "created_at": "2023-11-13 10:00:00",
+          "updated_at": "2023-11-13 10:00:00"
+        }
+      ],
+      "additional_services": [
+        {
+          "id": 1,
+          "service_key": "modeling",
+          "name": "3D моделирование",
+          "price": "500.00",
+          "unit": "час",
+          "active": 1,
+          "display_order": 1,
+          "created_at": "2023-11-13 10:00:00",
+          "updated_at": "2023-11-13 10:00:00"
+        }
+      ],
+      "quality_levels": [
+        {
+          "id": 2,
+          "quality_key": "normal",
+          "name": "Нормальное",
+          "price_multiplier": "1.00",
+          "time_multiplier": "1.00",
+          "active": 1,
+          "display_order": 2,
+          "created_at": "2023-11-13 10:00:00",
+          "updated_at": "2023-11-13 10:00:00"
+        }
+      ],
+      "volume_discounts": [
+        {
+          "id": 1,
+          "min_quantity": 10,
+          "discount_percent": "10.00",
+          "active": 1,
+          "created_at": "2023-11-13 10:00:00",
+          "updated_at": "2023-11-13 10:00:00"
+        }
+      ]
+    },
+    "forms": [
+      {
+        "id": 1,
+        "form_type": "contact",
+        "field_name": "name",
+        "label": "Ваше имя",
+        "field_type": "text",
+        "required": 1,
+        "enabled": 1,
+        "placeholder": "Иван Петров",
+        "display_order": 1,
+        "options": null,
+        "created_at": "2023-11-13 10:00:00",
+        "updated_at": "2023-11-13 10:00:00"
+      }
+    ],
+    "integrations": {
+      "telegram": {
+        "enabled": true,
+        "bot_token": "824180...KBI",
+        "chat_id": "",
+        "api_url": "https://api.telegram.org/bot",
+        "contact_url": "https://t.me/PrintPro_Omsk"
+      }
+    }
+  }
+}
+```
+
+### Update General Settings
+
+**PUT/PATCH** `/api/settings`
+
+Update general site settings (contact info, theme, notifications).
+
+**Authentication:** Required (Admin role)
+
+**Request Body:**
+```json
+{
+  "site_name": "3D Print Pro",
+  "site_description": "Профессиональная 3D печать",
+  "contact_email": "info@3dprintpro.ru",
+  "contact_phone": "+7 (999) 123-45-67",
+  "address": "г. Москва, ул. Примерная, д. 123",
+  "working_hours": "Пн-Пт: 9:00 - 18:00",
+  "timezone": "Europe/Moscow",
+  "social_links": {
+    "vk": "https://vk.com/example",
+    "telegram": "https://t.me/example",
+    "whatsapp": "https://wa.me/79991234567",
+    "youtube": "https://youtube.com/@example"
+  },
+  "theme": "light",
+  "color_primary": "#6366f1",
+  "color_secondary": "#ec4899",
+  "notifications": {
+    "newOrders": true,
+    "newReviews": true,
+    "newMessages": false
+  }
+}
+```
+
+**Validation Rules:**
+- `site_name`: string, 1-255 characters
+- `site_description`: string
+- `contact_email`: valid email
+- `contact_phone`: string, max 30 characters
+- `address`: string
+- `working_hours`: string
+- `timezone`: string, max 50 characters
+- `social_links`: object with valid URLs
+- `theme`: enum (light, dark)
+- `color_primary`: string, 4-7 characters (hex color)
+- `color_secondary`: string, 4-7 characters (hex color)
+- `notifications`: object with boolean values
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "General settings updated successfully",
+  "data": {
+    ...full admin settings...
+  }
+}
+```
+
+**Response (422 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "contact_email": "Contact email must be a valid email address",
+    "social_links": "Invalid URL for vk"
+  }
+}
+```
+
+### Update Calculator Settings
+
+**PUT/PATCH** `/api/settings/calculator`
+
+Update calculator configuration (materials, services, quality levels, discounts).
+
+**Authentication:** Required (Admin role)
+
+**Request Body:**
+```json
+{
+  "materials": [
+    {
+      "material_key": "pla",
+      "name": "PLA",
+      "price": 50.00,
+      "technology": "fdm",
+      "active": true,
+      "display_order": 1
+    }
+  ],
+  "additional_services": [
+    {
+      "service_key": "modeling",
+      "name": "3D моделирование",
+      "price": 500.00,
+      "unit": "час",
+      "active": true,
+      "display_order": 1
+    }
+  ],
+  "quality_levels": [
+    {
+      "quality_key": "normal",
+      "name": "Нормальное",
+      "price_multiplier": 1.00,
+      "time_multiplier": 1.00,
+      "active": true,
+      "display_order": 2
+    }
+  ],
+  "volume_discounts": [
+    {
+      "min_quantity": 10,
+      "discount_percent": 10.00,
+      "active": true
+    }
+  ]
+}
+```
+
+**Validation Rules:**
+
+**Materials:**
+- `material_key`: required, string, max 50 characters
+- `name`: required, string, max 100 characters
+- `price`: required, numeric, >= 0
+- `technology`: required, enum (fdm, sla, sls)
+- `active`: boolean
+- `display_order`: integer
+
+**Additional Services:**
+- `service_key`: required, string, max 50 characters
+- `name`: required, string, max 100 characters
+- `price`: required, numeric, >= 0
+- `unit`: required, string, max 20 characters
+- `active`: boolean
+- `display_order`: integer
+
+**Quality Levels:**
+- `quality_key`: required, string, max 50 characters
+- `name`: required, string, max 100 characters
+- `price_multiplier`: required, numeric, >= 0.01
+- `time_multiplier`: required, numeric, >= 0.01
+- `active`: boolean
+- `display_order`: integer
+
+**Volume Discounts:**
+- `min_quantity`: required, integer, >= 1
+- `discount_percent`: required, numeric, 0-100
+- `active`: boolean
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Calculator settings updated successfully",
+  "data": {
+    "materials": [...],
+    "additional_services": [...],
+    "quality_levels": [...],
+    "volume_discounts": [...]
+  }
+}
+```
+
+**Response (422 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "materials[0]": {
+      "price": "Price must be at least 0"
+    },
+    "quality_levels[1]": {
+      "price_multiplier": "Price multiplier must be at least 0.01"
+    }
+  }
+}
+```
+
+### Update Form Settings
+
+**PUT/PATCH** `/api/settings/forms`
+
+Update dynamic form field configurations.
+
+**Authentication:** Required (Admin role)
+
+**Request Body:**
+```json
+{
+  "fields": [
+    {
+      "form_type": "contact",
+      "field_name": "name",
+      "label": "Ваше имя",
+      "field_type": "text",
+      "required": true,
+      "enabled": true,
+      "placeholder": "Иван Петров",
+      "display_order": 1,
+      "options": null
+    },
+    {
+      "form_type": "contact",
+      "field_name": "subject",
+      "label": "Тема",
+      "field_type": "select",
+      "required": false,
+      "enabled": true,
+      "placeholder": "Выберите тему",
+      "display_order": 5,
+      "options": ["Расчет стоимости", "Консультация", "Другое"]
+    }
+  ]
+}
+```
+
+**Validation Rules:**
+- `form_type`: required, enum (contact, order)
+- `field_name`: required, string, max 50 characters
+- `label`: required, string, max 100 characters
+- `field_type`: required, enum (text, email, tel, textarea, select, checkbox, file, number, url, date)
+- `required`: boolean
+- `enabled`: boolean
+- `placeholder`: string, max 255 characters
+- `display_order`: integer
+- `options`: array of strings (required for select fields)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Form settings updated successfully",
+  "data": [
+    {
+      "id": 1,
+      "form_type": "contact",
+      "field_name": "name",
+      ...
+    }
+  ]
+}
+```
+
+**Response (422 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "fields[0][field_type]": "Field type must be one of: text, email, tel, textarea, select, checkbox, file, number, url, date",
+    "fields[1][options]": "All options must be strings"
+  }
+}
+```
+
+### Update Telegram Settings
+
+**PUT/PATCH** `/api/settings/telegram`
+
+Update Telegram bot integration settings.
+
+**Authentication:** Required (Admin role)
+
+**Request Body:**
+```json
+{
+  "enabled": true,
+  "bot_token": "8241807858:AAE0JXxWO9HumqesNK6x_vvaMrxvRK9qKBI",
+  "chat_id": "-1001234567890",
+  "api_url": "https://api.telegram.org/bot",
+  "contact_url": "https://t.me/PrintPro_Omsk"
+}
+```
+
+**Validation Rules:**
+- `enabled`: boolean
+- `bot_token`: string, format `<number>:<alphanumeric+underscore+hyphen>`
+- `chat_id`: string
+- `api_url`: valid URL
+- `contact_url`: valid URL
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Telegram settings updated successfully",
+  "data": {
+    "enabled": true,
+    "bot_token": "824180...KBI",
+    "chat_id": "-1001234567890",
+    "api_url": "https://api.telegram.org/bot",
+    "contact_url": "https://t.me/PrintPro_Omsk"
+  }
+}
+```
+
+**Response (422 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "bot_token": "Invalid Telegram bot token format"
+  }
+}
+```
+
+**Note:** The bot token is partially redacted in responses for security (shows first 6 and last 3 characters).
+
+---
+
+## Settings API Usage Examples
+
+### Fetching Public Settings for Frontend
+
+```bash
+# Get public settings (no authentication needed)
+curl http://localhost:8080/api/settings/public
+```
+
+This endpoint is designed for the frontend landing page to retrieve:
+- Site name, description, contact info
+- Calculator pricing data
+- Form field configurations
+- Theme settings
+- Public integration info (contact URLs only)
+
+### Updating Site Contact Info
+
+```bash
+# Update contact information (requires admin token)
+curl -X PUT http://localhost:8080/api/settings \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_email": "newinfo@3dprintpro.ru",
+    "contact_phone": "+7 (999) 000-11-22",
+    "working_hours": "Пн-Пт: 10:00 - 19:00"
+  }'
+```
+
+### Updating Calculator Pricing
+
+```bash
+# Update material prices (requires admin token)
+curl -X PUT http://localhost:8080/api/settings/calculator \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "materials": [
+      {
+        "material_key": "pla",
+        "name": "PLA",
+        "price": 55.00,
+        "technology": "fdm",
+        "active": true,
+        "display_order": 1
+      },
+      {
+        "material_key": "abs",
+        "name": "ABS",
+        "price": 65.00,
+        "technology": "fdm",
+        "active": true,
+        "display_order": 2
+      }
+    ]
+  }'
+```
+
+### Updating Telegram Bot Settings
+
+```bash
+# Update Telegram integration (requires admin token)
+curl -X PUT http://localhost:8080/api/settings/telegram \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "bot_token": "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+    "chat_id": "-1001234567890"
+  }'
+```
+
+---
+
 ## Support
 
 For questions or issues, contact: admin@3dprintpro.com
