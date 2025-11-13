@@ -3,12 +3,16 @@
 namespace App\Bootstrap;
 
 use App\Config\Database;
+use App\Controllers\AuthController;
 use App\Helpers\Response;
+use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\ErrorMiddleware;
+use App\Services\AuthService;
 use Dotenv\Dotenv;
 use Slim\Factory\AppFactory;
 use Slim\App as SlimApp;
+use Slim\Routing\RouteCollectorProxy;
 
 class App
 {
@@ -95,6 +99,9 @@ class App
 
     private function registerRoutes(): void
     {
+        $authService = new AuthService($this->config['jwt']);
+        $authController = new AuthController($authService);
+
         // Health check endpoint
         $this->app->get('/api/health', function ($request, $response) {
             $dbStatus = Database::testConnection();
@@ -119,10 +126,42 @@ class App
                 'documentation' => '/api/docs',
                 'endpoints' => [
                     'GET /api/health' => 'Health check and database status',
-                    'GET /api' => 'API information'
+                    'GET /api' => 'API information',
+                    'POST /api/auth/login' => 'Authenticate and get JWT token',
+                    'POST /api/auth/logout' => 'Logout (client-side token removal)',
+                    'POST /api/auth/refresh' => 'Refresh access token',
+                    'GET /api/auth/me' => 'Get current authenticated user (requires token)'
                 ]
             ], 'Welcome to 3D Print Pro API');
         });
+
+        // Authentication routes
+        $this->app->group('/api/auth', function (RouteCollectorProxy $group) use ($authController, $authService) {
+            $group->post('/login', [$authController, 'login']);
+            $group->post('/logout', [$authController, 'logout']);
+            $group->post('/refresh', [$authController, 'refresh']);
+            
+            $group->get('/me', [$authController, 'me'])
+                ->add(new AuthMiddleware($authService));
+        });
+
+        // Protected test route (example)
+        $this->app->get('/api/protected', function ($request, $response) {
+            $user = $request->getAttribute('user');
+            return Response::success([
+                'message' => 'This is a protected route',
+                'user' => $user
+            ]);
+        })->add(new AuthMiddleware($authService));
+
+        // Admin-only test route (example)
+        $this->app->get('/api/admin', function ($request, $response) {
+            $user = $request->getAttribute('user');
+            return Response::success([
+                'message' => 'This is an admin-only route',
+                'user' => $user
+            ]);
+        })->add(new AuthMiddleware($authService, ['admin']));
 
         // 404 handler for undefined routes
         $this->app->map(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], '/api/{path:.*}', 
