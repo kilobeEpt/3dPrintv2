@@ -22,8 +22,13 @@ Professional 3D printing service website with integrated order management, prici
 - **Chart.js** - Analytics and reporting charts
 - **Font Awesome** - Icon library
 
-### Backend (Database)
+### Backend
+- **PHP 7.4+** - Server-side programming
+- **Slim Framework 4** - Lightweight PHP micro-framework
 - **MySQL 8.0+** - Relational database
+- **Composer** - Dependency management
+- **JWT** - Authentication tokens
+- **PDO** - Database connectivity
 - **utf8mb4** - Full Unicode support including emojis
 - **JSON Columns** - For flexible nested data structures
 
@@ -49,14 +54,25 @@ Professional 3D printing service website with integrated order management, prici
 │   ├── validators.js       # Form validation
 │   └── telegram.js         # Telegram integration
 ├── backend/
-│   └── database/
-│       ├── migrations/
-│       │   └── 20231113_initial.sql       # Schema creation
-│       ├── seeds/
-│       │   └── initial_data.sql           # Baseline data
-│       ├── README.md                      # Quick setup guide
-│       ├── ER-DIAGRAM.md                  # Visual schema
-│       └── VALIDATION_CHECKLIST.md        # Setup verification
+│   ├── public/
+│   │   ├── index.php        # API front controller
+│   │   └── .htaccess        # Apache URL rewriting
+│   ├── src/
+│   │   ├── Bootstrap/       # Application bootstrap
+│   │   ├── Config/          # Configuration (database)
+│   │   ├── Middleware/      # CORS, error handling
+│   │   └── Helpers/         # Response helpers
+│   ├── database/
+│   │   ├── migrations/
+│   │   │   └── 20231113_initial.sql       # Schema creation
+│   │   ├── seeds/
+│   │   │   └── initial_data.sql           # Baseline data
+│   │   ├── README.md                      # Quick setup guide
+│   │   ├── ER-DIAGRAM.md                  # Visual schema
+│   │   └── VALIDATION_CHECKLIST.md        # Setup verification
+│   ├── .env.example         # Environment variables template
+│   ├── composer.json        # PHP dependencies
+│   └── README.md            # Backend documentation
 └── docs/
     ├── data-model.md       # Domain model specification
     └── db-schema.md        # Database documentation
@@ -105,10 +121,12 @@ Professional 3D printing service website with integrated order management, prici
 
 ### Prerequisites
 
-- Web browser (Chrome, Firefox, Safari, Edge)
-- Web server (for production deployment)
-- MySQL 8.0+ (for backend database)
-- Text editor or IDE
+- **Web browser** - Chrome, Firefox, Safari, Edge
+- **PHP 7.4+** - With PDO MySQL extension
+- **Composer** - PHP dependency manager
+- **MySQL 8.0+** - Database server
+- **Web server** - Apache or Nginx (for production)
+- **Text editor/IDE** - VS Code, PHPStorm, etc.
 
 ### Installation
 
@@ -139,7 +157,69 @@ mysql -u root -p ch167436_3dprint -e "SHOW TABLES;"
 
 See [Database Setup Guide](backend/database/README.md) for detailed instructions.
 
-#### 3. Configure Settings
+#### 3. Set Up Backend API
+
+**Install PHP dependencies:**
+
+```bash
+cd backend
+composer install
+```
+
+**Configure environment:**
+
+```bash
+cp .env.example .env
+nano .env  # Edit with your settings
+```
+
+Update `.env` with your database credentials:
+
+```env
+DB_HOST=localhost
+DB_DATABASE=ch167436_3dprint
+DB_USERNAME=root
+DB_PASSWORD=your_password
+
+# Generate a random secret for JWT
+JWT_SECRET=your_random_secret_key_here
+
+# Frontend URL for CORS
+CORS_ORIGIN=http://localhost:8000
+```
+
+**Test the API:**
+
+```bash
+# Start PHP development server
+php -S localhost:8080 -t public
+
+# Or use Composer script
+composer start
+```
+
+Test the health check endpoint:
+
+```bash
+curl http://localhost:8080/api/health
+```
+
+Expected response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2023-11-13 10:30:00",
+  "environment": "development",
+  "database": {
+    "connected": true,
+    "message": "Database connection successful"
+  }
+}
+```
+
+See [Backend API Documentation](backend/README.md) for detailed setup and deployment instructions.
+
+#### 4. Configure Frontend Settings
 
 **Update `config.js`:**
 
@@ -163,26 +243,17 @@ const CONFIG = {
 4. Get chat ID from admin panel
 5. Update integration settings
 
-#### 4. Deploy
+#### 5. Run Development Servers
 
-**Option A: Static Hosting (Netlify, Vercel, GitHub Pages)**
-
-```bash
-# Build not required - pure static files
-# Just deploy the entire directory
-```
-
-**Option B: Traditional Web Server (Apache, Nginx)**
+**Start the backend API (Terminal 1):**
 
 ```bash
-# Copy files to web root
-sudo cp -r * /var/www/html/
-
-# Set permissions
-sudo chown -R www-data:www-data /var/www/html/
+cd backend
+composer start
+# API runs on http://localhost:8080
 ```
 
-**Option C: Local Development**
+**Start the frontend (Terminal 2):**
 
 ```bash
 # Use Python's built-in server
@@ -192,7 +263,10 @@ python3 -m http.server 8000
 npx http-server -p 8000
 ```
 
-Visit: `http://localhost:8000`
+Visit: 
+- Frontend: `http://localhost:8000`
+- API: `http://localhost:8080/api`
+- Health check: `http://localhost:8080/api/health`
 
 ### First Login
 
