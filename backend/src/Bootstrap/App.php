@@ -9,6 +9,7 @@ use App\Controllers\PortfolioController;
 use App\Controllers\TestimonialsController;
 use App\Controllers\FaqController;
 use App\Controllers\ContentController;
+use App\Controllers\SettingsController;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -255,6 +256,25 @@ class App
         $this->app->group('/api/admin/stats', function (RouteCollectorProxy $group) use ($contentController) {
             $group->put('', [$contentController, 'updateStats']);
             $group->patch('', [$contentController, 'updateStats']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Settings Routes
+        $settingsController = new SettingsController();
+
+        // Public Settings Route
+        $this->app->get('/api/settings/public', [$settingsController, 'getPublicSettings']);
+
+        // Admin Settings Routes
+        $this->app->group('/api/settings', function (RouteCollectorProxy $group) use ($settingsController) {
+            $group->get('', [$settingsController, 'getAdminSettings']);
+            $group->put('', [$settingsController, 'updateGeneralSettings']);
+            $group->patch('', [$settingsController, 'updateGeneralSettings']);
+            $group->put('/calculator', [$settingsController, 'updateCalculatorSettings']);
+            $group->patch('/calculator', [$settingsController, 'updateCalculatorSettings']);
+            $group->put('/forms', [$settingsController, 'updateFormSettings']);
+            $group->patch('/forms', [$settingsController, 'updateFormSettings']);
+            $group->put('/telegram', [$settingsController, 'updateTelegramSettings']);
+            $group->patch('/telegram', [$settingsController, 'updateTelegramSettings']);
         })->add(new AuthMiddleware($authService, ['admin']));
     }
 
