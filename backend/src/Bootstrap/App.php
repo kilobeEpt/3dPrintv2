@@ -4,6 +4,11 @@ namespace App\Bootstrap;
 
 use App\Config\Database;
 use App\Controllers\AuthController;
+use App\Controllers\ServicesController;
+use App\Controllers\PortfolioController;
+use App\Controllers\TestimonialsController;
+use App\Controllers\FaqController;
+use App\Controllers\ContentController;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -22,7 +27,7 @@ class App
     public function __construct()
     {
         $this->loadEnvironment();
-        $this->config = $this->getConfig();
+        $this->config = $this->loadConfig();
         $this->initializeDatabase();
         $this->app = AppFactory::create();
         $this->configureMiddleware();
@@ -40,7 +45,7 @@ class App
         }
     }
 
-    private function getConfig(): array
+    private function loadConfig(): array
     {
         return [
             'app' => [
@@ -163,12 +168,94 @@ class App
             ]);
         })->add(new AuthMiddleware($authService, ['admin']));
 
+        // Content API Routes
+        $this->registerContentRoutes($authService);
+
         // 404 handler for undefined routes
         $this->app->map(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], '/api/{path:.*}', 
             function ($request, $response) {
                 return Response::notFound('Endpoint not found');
             }
         );
+    }
+
+    private function registerContentRoutes(AuthService $authService): void
+    {
+        $servicesController = new ServicesController();
+        $portfolioController = new PortfolioController();
+        $testimonialsController = new TestimonialsController();
+        $faqController = new FaqController();
+        $contentController = new ContentController();
+
+        // Public Services Routes
+        $this->app->get('/api/services', [$servicesController, 'index']);
+        $this->app->get('/api/services/{id}', [$servicesController, 'show']);
+
+        // Admin Services Routes
+        $this->app->group('/api/admin/services', function (RouteCollectorProxy $group) use ($servicesController) {
+            $group->get('', [$servicesController, 'adminIndex']);
+            $group->post('', [$servicesController, 'store']);
+            $group->put('/{id}', [$servicesController, 'update']);
+            $group->patch('/{id}', [$servicesController, 'update']);
+            $group->delete('/{id}', [$servicesController, 'destroy']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Public Portfolio Routes
+        $this->app->get('/api/portfolio', [$portfolioController, 'index']);
+        $this->app->get('/api/portfolio/categories', [$portfolioController, 'categories']);
+        $this->app->get('/api/portfolio/{id}', [$portfolioController, 'show']);
+
+        // Admin Portfolio Routes
+        $this->app->group('/api/admin/portfolio', function (RouteCollectorProxy $group) use ($portfolioController) {
+            $group->post('', [$portfolioController, 'store']);
+            $group->put('/{id}', [$portfolioController, 'update']);
+            $group->patch('/{id}', [$portfolioController, 'update']);
+            $group->delete('/{id}', [$portfolioController, 'destroy']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Public Testimonials Routes
+        $this->app->get('/api/testimonials', [$testimonialsController, 'index']);
+        $this->app->get('/api/testimonials/{id}', [$testimonialsController, 'show']);
+
+        // Admin Testimonials Routes
+        $this->app->group('/api/admin/testimonials', function (RouteCollectorProxy $group) use ($testimonialsController) {
+            $group->get('', [$testimonialsController, 'adminIndex']);
+            $group->post('', [$testimonialsController, 'store']);
+            $group->put('/{id}', [$testimonialsController, 'update']);
+            $group->patch('/{id}', [$testimonialsController, 'update']);
+            $group->delete('/{id}', [$testimonialsController, 'destroy']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Public FAQ Routes
+        $this->app->get('/api/faq', [$faqController, 'index']);
+        $this->app->get('/api/faq/{id}', [$faqController, 'show']);
+
+        // Admin FAQ Routes
+        $this->app->group('/api/admin/faq', function (RouteCollectorProxy $group) use ($faqController) {
+            $group->get('', [$faqController, 'adminIndex']);
+            $group->post('', [$faqController, 'store']);
+            $group->put('/{id}', [$faqController, 'update']);
+            $group->patch('/{id}', [$faqController, 'update']);
+            $group->delete('/{id}', [$faqController, 'destroy']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Public Content Routes
+        $this->app->get('/api/content', [$contentController, 'index']);
+        $this->app->get('/api/content/{section}', [$contentController, 'show']);
+        $this->app->get('/api/stats', [$contentController, 'getStats']);
+
+        // Admin Content Routes
+        $this->app->group('/api/admin/content', function (RouteCollectorProxy $group) use ($contentController) {
+            $group->put('/{section}', [$contentController, 'upsert']);
+            $group->patch('/{section}', [$contentController, 'upsert']);
+            $group->delete('/{section}', [$contentController, 'destroy']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Admin Stats Routes
+        $this->app->group('/api/admin/stats', function (RouteCollectorProxy $group) use ($contentController) {
+            $group->put('', [$contentController, 'updateStats']);
+            $group->patch('', [$contentController, 'updateStats']);
+        })->add(new AuthMiddleware($authService, ['admin']));
     }
 
     public function run(): void
