@@ -1,0 +1,109 @@
+# ============================================
+# 3D Print Pro - Nginx Configuration Example
+# ============================================
+# Place this configuration in your nginx sites-available directory
+# and create a symbolic link to sites-enabled.
+# ============================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    
+    # Update with your domain
+    server_name api.yourdomain.com;
+    
+    # Document root should point to backend/public
+    root /var/www/3dprint-pro/backend/public;
+    index index.php;
+    
+    # Charset
+    charset utf-8;
+    
+    # Logs
+    access_log /var/log/nginx/3dprint-api-access.log;
+    error_log /var/log/nginx/3dprint-api-error.log;
+    
+    # Client body size (for file uploads)
+    client_max_body_size 10M;
+    
+    # API routing
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+    
+    # PHP-FPM handling
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        
+        # Adjust the socket/port based on your PHP-FPM configuration
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        # Or use TCP: fastcgi_pass 127.0.0.1:9000;
+        
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        
+        # Pass PHP settings
+        fastcgi_param PHP_VALUE "upload_max_filesize=10M \n post_max_size=10M";
+        fastcgi_read_timeout 300;
+    }
+    
+    # Security: Deny access to sensitive files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    location ~ /(composer\.json|composer\.lock|\.env)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Disable logging for favicon and robots
+    location = /favicon.ico {
+        access_log off;
+        log_not_found off;
+    }
+    
+    location = /robots.txt {
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Security headers
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types application/json application/javascript text/css text/plain text/xml;
+}
+
+# ============================================
+# SSL Configuration (optional, for production)
+# ============================================
+# Generate SSL certificate with Let's Encrypt:
+# sudo certbot --nginx -d api.yourdomain.com
+# ============================================
+
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     
+#     server_name api.yourdomain.com;
+#     
+#     ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#     
+#     # ... rest of the configuration from above
+# }
