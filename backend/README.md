@@ -16,25 +16,38 @@ RESTful API backend for the 3D Print Pro application, built with PHP and Slim Fr
 ```
 backend/
 ├── public/
-│   ├── index.php           # Front controller (entry point)
-│   └── .htaccess            # Apache URL rewriting
+│   ├── index.php                # Front controller (entry point)
+│   └── .htaccess                # Apache URL rewriting
 ├── src/
 │   ├── Bootstrap/
-│   │   └── App.php          # Application bootstrap
+│   │   └── App.php              # Application bootstrap & routing
 │   ├── Config/
-│   │   └── Database.php     # PDO database connection
+│   │   └── Database.php         # PDO database connection
+│   ├── Controllers/
+│   │   └── AuthController.php   # Authentication endpoints
+│   ├── Services/
+│   │   └── AuthService.php      # JWT & auth business logic
 │   ├── Middleware/
-│   │   ├── CorsMiddleware.php      # CORS headers
-│   │   └── ErrorMiddleware.php     # Error handling
+│   │   ├── AuthMiddleware.php   # JWT token verification
+│   │   ├── CorsMiddleware.php   # CORS headers
+│   │   └── ErrorMiddleware.php  # Error handling
 │   └── Helpers/
-│       └── Response.php     # JSON response helpers
+│       └── Response.php         # JSON response helpers
 ├── database/
-│   ├── migrations/          # Database schema migrations
-│   └── seeds/               # Initial data seeds
-├── .env.example             # Environment variables template
-├── composer.json            # PHP dependencies
-├── nginx.conf.example       # Nginx configuration
-└── README.md               # This file
+│   ├── migrations/              # Database schema migrations
+│   └── seeds/
+│       ├── initial_data.sql     # Initial data
+│       └── seed-admin-user.php  # Admin user seeder (uses .env)
+├── bin/
+│   └── reset-password.php       # Password reset CLI utility
+├── docs/
+│   └── AUTHENTICATION.md        # Authentication guide
+├── storage/
+│   └── logs/                    # Application logs
+├── .env.example                 # Environment variables template
+├── composer.json                # PHP dependencies
+├── nginx.conf.example           # Nginx configuration
+└── README.md                   # This file
 ```
 
 ## Installation
@@ -92,9 +105,22 @@ mysql -u root -p < database/migrations/20231113_initial.sql
 
 # Load seed data
 mysql -u root -p ch167436_3dprint < database/seeds/initial_data.sql
+
+# Seed admin user (reads credentials from .env)
+php database/seeds/seed-admin-user.php
 ```
 
 See [Database Setup Guide](database/README.md) for detailed instructions.
+
+**Default Admin Credentials:**
+- Login: `admin` (configured via `ADMIN_LOGIN` in `.env`)
+- Password: `admin123` (configured via `ADMIN_PASSWORD` in `.env`)
+
+⚠️ **Important:** Change the default password immediately after first login! Use the password reset utility:
+
+```bash
+php bin/reset-password.php admin
+```
 
 ### 4. Set Permissions (Linux/Mac)
 
@@ -255,6 +281,33 @@ For Timeweb (or similar shared hosting):
 | `JWT_EXPIRATION` | Token lifetime (seconds) | `3600` |
 
 ## API Endpoints
+
+### Authentication
+
+The API uses JWT (JSON Web Token) for authentication. For detailed authentication documentation, see [Authentication Guide](docs/AUTHENTICATION.md).
+
+**Quick Start:**
+
+```bash
+# Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"login":"admin","password":"admin123"}'
+
+# Access protected routes
+curl -X GET http://localhost:8080/api/auth/me \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+**Available Auth Endpoints:**
+- `POST /api/auth/login` - Authenticate and get JWT token
+- `POST /api/auth/logout` - Logout (client-side token removal)
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/me` - Get current authenticated user (requires token)
+
+**Test Routes:**
+- `GET /api/protected` - Any authenticated user
+- `GET /api/admin` - Admin users only
 
 ### Health Check
 
