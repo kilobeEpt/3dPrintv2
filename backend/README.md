@@ -57,7 +57,8 @@ backend/
 ├── docs/
 │   ├── AUTHENTICATION.md        # Authentication guide
 │   ├── SETTINGS_API_TESTING.md  # Settings API testing
-│   └── ORDERS_API.md            # Orders API guide
+│   ├── ORDERS_API.md            # Orders API guide
+│   └── TELEGRAM_INTEGRATION.md  # Telegram bot setup guide
 ├── storage/
 │   └── logs/                    # Application logs
 ├── .env.example                 # Environment variables template
@@ -295,6 +296,8 @@ For Timeweb (or similar shared hosting):
 | `DB_CHARSET` | Database charset | `utf8mb4` |
 | `JWT_ALGORITHM` | JWT algorithm | `HS256` |
 | `JWT_EXPIRATION` | Token lifetime (seconds) | `3600` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | - |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID | - |
 
 ## API Endpoints
 
@@ -324,6 +327,15 @@ curl -X GET http://localhost:8080/api/auth/me \
 **Test Routes:**
 - `GET /api/protected` - Any authenticated user
 - `GET /api/admin` - Admin users only
+
+### Telegram Integration
+
+Telegram bot integration for real-time order notifications. For detailed setup and troubleshooting, see [Telegram Integration Guide](docs/TELEGRAM_INTEGRATION.md).
+
+**Admin Endpoints (require authentication):**
+- `POST /api/telegram/test` - Send test message to verify integration
+- `GET /api/telegram/chat-id` - Get available chat IDs from bot updates
+- `GET /api/telegram/status` - Check integration status and bot info
 
 ### Orders API
 

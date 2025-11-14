@@ -212,4 +212,98 @@ class TelegramService
             'error' => $result['description'] ?? 'Unknown error'
         ];
     }
+
+    public function sendTestMessage(): array
+    {
+        if (!$this->enabled) {
+            return [
+                'success' => false,
+                'error' => 'Telegram integration is not enabled'
+            ];
+        }
+
+        $message = "🧪 Тестовое сообщение\n\n";
+        $message .= "✅ Telegram бот настроен правильно!\n";
+        $message .= "🕐 Время: " . date('Y-m-d H:i:s') . "\n\n";
+        $message .= "Уведомления о новых заказах будут приходить в этот чат.";
+
+        return $this->sendMessage($message);
+    }
+
+    public function getUpdates(int $limit = 10, int $offset = 0): array
+    {
+        if (empty($this->botToken)) {
+            return [
+                'success' => false,
+                'error' => 'Bot token is not configured'
+            ];
+        }
+
+        $url = "https://api.telegram.org/bot{$this->botToken}/getUpdates";
+        
+        $params = [
+            'limit' => min($limit, 100),
+            'offset' => $offset
+        ];
+
+        $ch = curl_init($url . '?' . http_build_query($params));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            return [
+                'success' => false,
+                'error' => "cURL error: {$curlError}"
+            ];
+        }
+
+        $result = json_decode($response, true);
+
+        if ($httpCode === 200 && !empty($result['ok'])) {
+            $updates = $result['result'] ?? [];
+            $chatIds = $this->extractChatIds($updates);
+
+            return [
+                'success' => true,
+                'updates' => $updates,
+                'chat_ids' => $chatIds,
+                'count' => count($updates)
+            ];
+        }
+
+        return [
+            'success' => false,
+            'error' => $result['description'] ?? 'Unknown error',
+            'error_code' => $result['error_code'] ?? $httpCode
+        ];
+    }
+
+    private function extractChatIds(array $updates): array
+    {
+        $chatIds = [];
+
+        foreach ($updates as $update) {
+            if (isset($update['message']['chat']['id'])) {
+                $chatId = $update['message']['chat']['id'];
+                $chatType = $update['message']['chat']['type'] ?? 'unknown';
+                $chatTitle = $update['message']['chat']['title'] ?? 
+                            $update['message']['chat']['first_name'] ?? 
+                            'Unknown';
+
+                $chatIds[$chatId] = [
+                    'id' => $chatId,
+                    'type' => $chatType,
+                    'title' => $chatTitle
+                ];
+            }
+        }
+
+        return array_values($chatIds);
+    }
 }

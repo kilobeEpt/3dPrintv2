@@ -70,6 +70,15 @@ class OrdersService
             $result = $this->telegramService->sendOrderNotification($order);
             $telegramSent = $result['success'] ?? false;
             
+            // Log failure for debugging
+            if (!$telegramSent) {
+                error_log(sprintf(
+                    '[Telegram] Failed to send notification for order %s: %s',
+                    $orderNumber,
+                    $result['error'] ?? 'Unknown error'
+                ));
+            }
+            
             // Update telegram_sent status
             $this->repository->updateTelegramStatus($orderId, $telegramSent);
         }
@@ -122,6 +131,15 @@ class OrdersService
         }
 
         $result = $this->telegramService->sendOrderNotification($order);
+
+        // Log failure for debugging
+        if (!$result['success']) {
+            error_log(sprintf(
+                '[Telegram] Failed to resend notification for order %s: %s',
+                $order['order_number'] ?? $id,
+                $result['error'] ?? 'Unknown error'
+            ));
+        }
 
         if ($result['success']) {
             $this->repository->updateTelegramStatus($id, true);
