@@ -8,12 +8,15 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # Redirect trailing slashes if not a folder
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
+    # Set base path (adjust if installed in subdirectory)
+    RewriteBase /backend/public/
+    
+    # Handle Authorization header for JWT
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
     
     # Send requests to index.php if not a real file/directory
+    # This is the ONLY rewrite rule - no redirects!
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [QSA,L]
