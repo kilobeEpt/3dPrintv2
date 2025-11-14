@@ -2044,6 +2044,222 @@ Resend Telegram notification for an order.
 
 ---
 
+## Telegram Integration
+
+The Telegram integration provides admin endpoints for testing and managing Telegram bot notifications. For complete setup instructions, see [Backend Telegram Integration Guide](../backend/docs/TELEGRAM_INTEGRATION.md).
+
+### Test Telegram Connection (Admin)
+
+**POST** `/api/telegram/test`
+
+Send a test message to verify Telegram integration is working.
+
+**Authentication:** Required (Admin role)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Telegram test message sent",
+  "data": {
+    "message_id": 123,
+    "message": "Test message sent successfully"
+  }
+}
+```
+
+**Response (400 - Not Configured):**
+```json
+{
+  "success": false,
+  "message": "Telegram integration is not enabled. Please configure bot token and chat ID in settings."
+}
+```
+
+---
+
+### Get Chat IDs (Admin)
+
+**GET** `/api/telegram/chat-id`
+
+Retrieve recent bot updates to discover available chat IDs.
+
+**Authentication:** Required (Admin role)
+
+**Query Parameters:**
+- `limit` (optional): Number of updates to retrieve (default: 10, max: 100)
+- `offset` (optional): Offset for pagination (default: 0)
+
+**Response (200 - Chat IDs Found):**
+```json
+{
+  "success": true,
+  "message": "Chat IDs retrieved",
+  "data": {
+    "chat_ids": [
+      {
+        "id": 123456789,
+        "type": "private",
+        "title": "John Doe"
+      },
+      {
+        "id": -987654321,
+        "type": "group",
+        "title": "Support Team"
+      }
+    ],
+    "count": 2,
+    "message": "Chat IDs retrieved successfully. Use one of these IDs in your Telegram settings."
+  }
+}
+```
+
+**Response (200 - No Chat IDs):**
+```json
+{
+  "success": true,
+  "message": "No updates available",
+  "data": {
+    "chat_ids": [],
+    "count": 0,
+    "message": "No chat IDs found. Please send a message to your bot first, then try again."
+  }
+}
+```
+
+**Response (400 - Token Not Configured):**
+```json
+{
+  "success": false,
+  "message": "Bot token is not configured"
+}
+```
+
+---
+
+### Check Telegram Status (Admin)
+
+**GET** `/api/telegram/status`
+
+Check the current status and configuration of Telegram integration.
+
+**Authentication:** Required (Admin role)
+
+**Response (200 - Fully Working):**
+```json
+{
+  "success": true,
+  "message": "Telegram status retrieved",
+  "data": {
+    "enabled": true,
+    "configured": true,
+    "connected": true,
+    "bot": {
+      "id": 123456789,
+      "is_bot": true,
+      "first_name": "3D Print Bot",
+      "username": "my3dprint_bot",
+      "can_join_groups": true,
+      "can_read_all_group_messages": false,
+      "supports_inline_queries": false
+    },
+    "message": "Telegram integration is working properly"
+  }
+}
+```
+
+**Response (200 - Not Configured):**
+```json
+{
+  "success": true,
+  "message": "Telegram status retrieved",
+  "data": {
+    "enabled": false,
+    "configured": false,
+    "message": "Telegram integration is not configured"
+  }
+}
+```
+
+**Response (200 - Connection Failed):**
+```json
+{
+  "success": true,
+  "message": "Telegram status retrieved",
+  "data": {
+    "enabled": true,
+    "configured": true,
+    "connected": false,
+    "error": "Unauthorized: invalid bot token",
+    "message": "Telegram integration is configured but connection failed"
+  }
+}
+```
+
+---
+
+## Telegram Integration Usage Examples
+
+### Setting Up Telegram Integration
+
+1. **Create a bot with BotFather:**
+   - Open Telegram and search for `@BotFather`
+   - Send `/newbot` command and follow prompts
+   - Copy the bot token
+
+2. **Configure via Settings API:**
+```bash
+curl -X PUT http://localhost:8080/api/settings/telegram \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+    "chat_id": "123456789"
+  }'
+```
+
+3. **Get Chat ID:**
+```bash
+# First, send a message to your bot in Telegram
+# Then retrieve chat IDs:
+curl -X GET http://localhost:8080/api/telegram/chat-id \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+4. **Test the integration:**
+```bash
+curl -X POST http://localhost:8080/api/telegram/test \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+5. **Check status:**
+```bash
+curl -X GET http://localhost:8080/api/telegram/status \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+### Automatic Order Notifications
+
+When an order is submitted via `POST /api/orders`, the system automatically:
+- Creates the order in the database
+- Checks if Telegram integration is enabled
+- Sends a formatted notification to the configured chat
+- Updates the `telegram_sent` flag on the order
+- Logs any errors
+
+No additional action is required - notifications are sent automatically!
+
+### Manually Resending Notifications
+
+If a notification fails or needs to be resent:
+
+```bash
+curl -X POST http://localhost:8080/api/orders/{id}/resend-telegram \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+---
+
 ## Orders API Usage Examples
 
 ### Submitting an Order from Frontend

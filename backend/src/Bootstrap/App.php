@@ -11,6 +11,7 @@ use App\Controllers\FaqController;
 use App\Controllers\ContentController;
 use App\Controllers\SettingsController;
 use App\Controllers\OrdersController;
+use App\Controllers\TelegramController;
 use App\Helpers\Response;
 use App\Helpers\TelegramService;
 use App\Middleware\AuthMiddleware;
@@ -299,6 +300,15 @@ class App
             $group->patch('/forms', [$settingsController, 'updateFormSettings']);
             $group->put('/telegram', [$settingsController, 'updateTelegramSettings']);
             $group->patch('/telegram', [$settingsController, 'updateTelegramSettings']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Telegram Admin Routes
+        $telegramController = new TelegramController($telegramService);
+
+        $this->app->group('/api/telegram', function (RouteCollectorProxy $group) use ($telegramController) {
+            $group->post('/test', [$telegramController, 'test']);
+            $group->get('/chat-id', [$telegramController, 'getChatId']);
+            $group->get('/status', [$telegramController, 'status']);
         })->add(new AuthMiddleware($authService, ['admin']));
     }
 
