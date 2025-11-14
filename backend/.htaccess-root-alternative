@@ -1,0 +1,55 @@
+# ============================================
+# ALTERNATIVE .htaccess FOR ROOT public_html/
+# ============================================
+# If backend/public/.htaccess doesn't work due to hosting restrictions,
+# you can use this approach instead:
+#
+# 1. Copy this file to your public_html/.htaccess
+# 2. Create public_html/api/ directory
+# 3. Copy backend/public/index.php to public_html/api/index.php
+# 4. Update frontend config to use /api/ instead of /backend/public/api/
+#
+# This creates a cleaner URL structure: yoursite.com/api/...
+# ============================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Handle Authorization header for JWT
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    
+    # Route all /api requests to /api/index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+</IfModule>
+
+# ============================================
+# Security Headers
+# ============================================
+
+<IfModule mod_headers.c>
+    # Prevent MIME type sniffing
+    Header set X-Content-Type-Options "nosniff"
+    
+    # Enable XSS protection
+    Header set X-XSS-Protection "1; mode=block"
+    
+    # Prevent clickjacking
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# ============================================
+# Deny Access to Sensitive Files
+# ============================================
+
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "(composer\.json|composer\.lock|\.env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
