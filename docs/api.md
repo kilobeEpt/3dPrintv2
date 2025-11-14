@@ -1680,6 +1680,456 @@ curl -X PUT http://localhost:8080/api/settings/telegram \
 
 ---
 
+## Orders Endpoints
+
+### Submit Order (Public)
+
+**POST** `/api/orders`
+
+Submit a new order or contact form submission. No authentication required.
+
+**Request Body:**
+```json
+{
+  "client_name": "Иван Петров",
+  "client_email": "ivan@example.com",
+  "client_phone": "+7 (999) 123-45-67",
+  "telegram": "@ivanpetrov",
+  "type": "order",
+  "service": "3D печать FDM",
+  "subject": "Заказ прототипа",
+  "message": "Здравствуйте! Хочу заказать печать детали...",
+  "amount": 1250.50,
+  "calculator_data": {
+    "material": "PLA",
+    "weight": 25,
+    "volume": 31.25,
+    "quality": "normal",
+    "quantity": 5,
+    "additionalServices": ["Моделирование", "Постобработка"],
+    "total": 1250.50
+  }
+}
+```
+
+**Validation Rules:**
+- `client_name`: required, string, 2-100 characters
+- `client_email`: required, valid email, max 255 characters
+- `client_phone`: required, string, 10-30 characters
+- `telegram`: optional, string, max 100 characters
+- `type`: optional, enum: "order" or "contact" (auto-detected if not provided)
+- `service`: optional, string, max 255 characters
+- `subject`: optional, string, max 255 characters
+- `message`: optional, string, max 5000 characters
+- `amount`: optional, numeric, minimum 0
+- `calculator_data`: optional, object/array
+
+**Rate Limiting:**
+- Maximum 5 submissions per hour per IP address
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Order submitted successfully",
+  "data": {
+    "order": {
+      "id": 42,
+      "order_number": "ORD-20231113-0042",
+      "type": "order",
+      "status": "new",
+      "client_name": "Иван Петров",
+      "client_email": "ivan@example.com",
+      "client_phone": "+7 (999) 123-45-67",
+      "telegram": "@ivanpetrov",
+      "service": "3D печать FDM",
+      "subject": "Заказ прототипа",
+      "message": "Здравствуйте! Хочу заказать печать детали...",
+      "amount": "1250.50",
+      "calculator_data": {
+        "material": "PLA",
+        "weight": 25,
+        "total": 1250.50
+      },
+      "telegram_sent": true,
+      "telegram_sent_at": null,
+      "created_at": "2023-11-13 15:30:45",
+      "updated_at": "2023-11-13 15:30:45"
+    },
+    "telegram_sent": true
+  }
+}
+```
+
+**Response (422 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "client_name": "Client name is required",
+    "client_email": "Client email must be a valid email address"
+  }
+}
+```
+
+**Response (429 - Rate Limited):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "rate_limit": "Too many requests. Please try again later."
+  }
+}
+```
+
+---
+
+### List Orders (Admin)
+
+**GET** `/api/orders`
+
+Get paginated list of all orders with optional filters.
+
+**Authentication:** Required (Admin role)
+
+**Query Parameters:**
+- `page`: Page number (default: 1)
+- `per_page`: Items per page (default: 20, max: 100)
+- `status`: Filter by status: "new", "processing", "completed", "cancelled"
+- `type`: Filter by type: "order", "contact"
+- `search`: Full-text search across client name, email, and message
+- `date_from`: Filter by creation date (format: YYYY-MM-DD)
+- `date_to`: Filter by creation date (format: YYYY-MM-DD)
+
+**Example Request:**
+```bash
+GET /api/orders?page=1&per_page=20&status=new&type=order&search=Ivan&date_from=2023-11-01&date_to=2023-11-30
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Orders retrieved successfully",
+  "data": {
+    "items": [
+      {
+        "id": 42,
+        "order_number": "ORD-20231113-0042",
+        "type": "order",
+        "status": "new",
+        "client_name": "Иван Петров",
+        "client_email": "ivan@example.com",
+        "client_phone": "+7 (999) 123-45-67",
+        "telegram": "@ivanpetrov",
+        "service": "3D печать FDM",
+        "subject": "Заказ прототипа",
+        "message": "Здравствуйте! Хочу заказать печать детали...",
+        "amount": "1250.50",
+        "calculator_data": {
+          "material": "PLA",
+          "weight": 25,
+          "total": 1250.50
+        },
+        "telegram_sent": true,
+        "telegram_sent_at": "2023-11-13 15:30:50",
+        "created_at": "2023-11-13 15:30:45",
+        "updated_at": "2023-11-13 15:30:45"
+      }
+    ],
+    "pagination": {
+      "total": 156,
+      "page": 1,
+      "per_page": 20,
+      "total_pages": 8
+    }
+  }
+}
+```
+
+---
+
+### Get Order (Admin)
+
+**GET** `/api/orders/{id}`
+
+Get a single order by ID.
+
+**Authentication:** Required (Admin role)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Order retrieved successfully",
+  "data": {
+    "id": 42,
+    "order_number": "ORD-20231113-0042",
+    "type": "order",
+    "status": "new",
+    "client_name": "Иван Петров",
+    "client_email": "ivan@example.com",
+    "client_phone": "+7 (999) 123-45-67",
+    "telegram": "@ivanpetrov",
+    "service": "3D печать FDM",
+    "subject": "Заказ прототипа",
+    "message": "Здравствуйте! Хочу заказать печать детали...",
+    "amount": "1250.50",
+    "calculator_data": {
+      "material": "PLA",
+      "weight": 25,
+      "volume": 31.25,
+      "quality": "normal",
+      "quantity": 5,
+      "additionalServices": ["Моделирование", "Постобработка"],
+      "total": 1250.50
+    },
+    "telegram_sent": true,
+    "telegram_sent_at": "2023-11-13 15:30:50",
+    "created_at": "2023-11-13 15:30:45",
+    "updated_at": "2023-11-13 15:30:45"
+  }
+}
+```
+
+**Response (404 - Not Found):**
+```json
+{
+  "success": false,
+  "message": "Order not found"
+}
+```
+
+---
+
+### Update Order (Admin)
+
+**PUT/PATCH** `/api/orders/{id}`
+
+Update an existing order.
+
+**Authentication:** Required (Admin role)
+
+**Request Body:**
+```json
+{
+  "status": "processing",
+  "message": "Обновленное сообщение с заметками...",
+  "amount": 1500.00,
+  "telegram_sent": true
+}
+```
+
+**Validation Rules:**
+- `type`: enum: "order", "contact"
+- `status`: enum: "new", "processing", "completed", "cancelled"
+- `client_name`: string, 2-100 characters
+- `client_email`: valid email, max 255 characters
+- `client_phone`: string, 10-30 characters
+- `telegram`: string, max 100 characters
+- `service`: string, max 255 characters
+- `subject`: string, max 255 characters
+- `message`: string, max 5000 characters
+- `amount`: numeric, minimum 0
+- `calculator_data`: object/array
+- `telegram_sent`: boolean
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Order updated successfully",
+  "data": {
+    "id": 42,
+    "order_number": "ORD-20231113-0042",
+    "type": "order",
+    "status": "processing",
+    "client_name": "Иван Петров",
+    "client_email": "ivan@example.com",
+    "client_phone": "+7 (999) 123-45-67",
+    "message": "Обновленное сообщение с заметками...",
+    "amount": "1500.00",
+    "telegram_sent": true,
+    "telegram_sent_at": "2023-11-13 15:30:50",
+    "created_at": "2023-11-13 15:30:45",
+    "updated_at": "2023-11-13 16:45:30"
+  }
+}
+```
+
+**Response (404 - Not Found):**
+```json
+{
+  "success": false,
+  "message": "Order not found"
+}
+```
+
+**Response (422 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "status": "Status must be one of: new, processing, completed, cancelled"
+  }
+}
+```
+
+---
+
+### Delete Order (Admin)
+
+**DELETE** `/api/orders/{id}`
+
+Delete an order permanently.
+
+**Authentication:** Required (Admin role)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Order deleted successfully",
+  "data": null
+}
+```
+
+**Response (404 - Not Found):**
+```json
+{
+  "success": false,
+  "message": "Order not found"
+}
+```
+
+---
+
+### Resend Telegram Notification (Admin)
+
+**POST** `/api/orders/{id}/resend-telegram`
+
+Resend Telegram notification for an order.
+
+**Authentication:** Required (Admin role)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Telegram notification sent successfully",
+  "data": {
+    "message_id": 12345
+  }
+}
+```
+
+**Response (404 - Not Found):**
+```json
+{
+  "success": false,
+  "message": "Order not found"
+}
+```
+
+**Response (400 - Telegram Not Enabled):**
+```json
+{
+  "success": false,
+  "message": "Telegram integration is not enabled"
+}
+```
+
+---
+
+## Orders API Usage Examples
+
+### Submitting an Order from Frontend
+
+```bash
+# Submit order with calculator data
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "Иван Петров",
+    "client_email": "ivan@example.com",
+    "client_phone": "+7 (999) 123-45-67",
+    "type": "order",
+    "service": "3D печать FDM",
+    "message": "Прошу рассчитать стоимость заказа",
+    "amount": 1250.50,
+    "calculator_data": {
+      "material": "PLA",
+      "weight": 25,
+      "quantity": 5,
+      "total": 1250.50
+    }
+  }'
+```
+
+### Submitting a Contact Form
+
+```bash
+# Simple contact form submission
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "Мария Иванова",
+    "client_email": "maria@example.com",
+    "client_phone": "+7 (999) 555-12-34",
+    "subject": "Вопрос по услугам",
+    "message": "Здравствуйте! Хочу узнать больше о ваших услугах..."
+  }'
+```
+
+### Filtering Orders (Admin)
+
+```bash
+# Get new orders from last week
+curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  "http://localhost:8080/api/orders?status=new&date_from=2023-11-06&date_to=2023-11-13"
+
+# Search orders by client name
+curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  "http://localhost:8080/api/orders?search=Иван&page=1&per_page=10"
+
+# Get all contact form submissions
+curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  "http://localhost:8080/api/orders?type=contact"
+```
+
+### Updating Order Status (Admin)
+
+```bash
+# Mark order as processing
+curl -X PUT http://localhost:8080/api/orders/42 \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "processing"
+  }'
+
+# Complete an order
+curl -X PATCH http://localhost:8080/api/orders/42 \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed"
+  }'
+```
+
+### Resending Telegram Notification (Admin)
+
+```bash
+# Resend notification if it failed initially
+curl -X POST http://localhost:8080/api/orders/42/resend-telegram \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+---
+
 ## Support
 
 For questions or issues, contact: admin@3dprintpro.com
