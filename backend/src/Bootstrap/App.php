@@ -113,13 +113,14 @@ class App
         $authController = new AuthController($authService);
 
         // Health check endpoint
-        $this->app->get('/api/health', function ($request, $response) {
+        $config = $this->config;
+        $this->app->get('/api/health', function ($request, $response) use ($config) {
             $dbStatus = Database::testConnection();
             
             $health = [
                 'status' => $dbStatus['connected'] ? 'healthy' : 'unhealthy',
                 'timestamp' => date('Y-m-d H:i:s'),
-                'environment' => $this->config['app']['env'],
+                'environment' => $config['app']['env'],
                 'database' => $dbStatus
             ];
 
