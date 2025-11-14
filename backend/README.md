@@ -24,15 +24,29 @@ backend/
 │   ├── Config/
 │   │   └── Database.php         # PDO database connection
 │   ├── Controllers/
-│   │   └── AuthController.php   # Authentication endpoints
+│   │   ├── AuthController.php        # Authentication endpoints
+│   │   ├── OrdersController.php      # Orders CRUD & Telegram
+│   │   ├── ServicesController.php    # Services management
+│   │   ├── PortfolioController.php   # Portfolio management
+│   │   ├── TestimonialsController.php # Testimonials management
+│   │   ├── FaqController.php         # FAQ management
+│   │   ├── ContentController.php     # Content & Stats management
+│   │   └── SettingsController.php    # Settings management
 │   ├── Services/
-│   │   └── AuthService.php      # JWT & auth business logic
+│   │   ├── AuthService.php           # JWT & auth business logic
+│   │   ├── OrdersService.php         # Orders business logic
+│   │   └── ...Service.php            # Other service classes
+│   ├── Repositories/
+│   │   ├── OrdersRepository.php      # Orders data access
+│   │   └── ...Repository.php         # Other repository classes
 │   ├── Middleware/
 │   │   ├── AuthMiddleware.php   # JWT token verification
 │   │   ├── CorsMiddleware.php   # CORS headers
 │   │   └── ErrorMiddleware.php  # Error handling
 │   └── Helpers/
-│       └── Response.php         # JSON response helpers
+│       ├── Response.php         # JSON response helpers
+│       ├── Validator.php        # Input validation
+│       └── TelegramService.php  # Telegram bot notifications
 ├── database/
 │   ├── migrations/              # Database schema migrations
 │   └── seeds/
@@ -41,7 +55,9 @@ backend/
 ├── bin/
 │   └── reset-password.php       # Password reset CLI utility
 ├── docs/
-│   └── AUTHENTICATION.md        # Authentication guide
+│   ├── AUTHENTICATION.md        # Authentication guide
+│   ├── SETTINGS_API_TESTING.md  # Settings API testing
+│   └── ORDERS_API.md            # Orders API guide
 ├── storage/
 │   └── logs/                    # Application logs
 ├── .env.example                 # Environment variables template
@@ -308,6 +324,52 @@ curl -X GET http://localhost:8080/api/auth/me \
 **Test Routes:**
 - `GET /api/protected` - Any authenticated user
 - `GET /api/admin` - Admin users only
+
+### Orders API
+
+Complete order and contact form management with Telegram notifications. For detailed documentation, see [Orders API Guide](docs/ORDERS_API.md).
+
+**Public Endpoints:**
+- `POST /api/orders` - Submit order/contact form (rate-limited, sends Telegram notification)
+
+**Admin Endpoints** (require authentication):
+- `GET /api/orders` - List orders with pagination and filters (status, type, search, date range)
+- `GET /api/orders/{id}` - Get single order details
+- `PUT/PATCH /api/orders/{id}` - Update order (status, notes, etc.)
+- `DELETE /api/orders/{id}` - Delete order
+- `POST /api/orders/{id}/resend-telegram` - Resend Telegram notification
+
+**Quick Example:**
+
+```bash
+# Submit an order (public)
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "John Doe",
+    "client_email": "john@example.com",
+    "client_phone": "+1234567890",
+    "message": "I would like to order a 3D print"
+  }'
+
+# List orders (admin)
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  "http://localhost:8080/api/orders?status=new&page=1&per_page=20"
+```
+
+### Content Management APIs
+
+The API provides complete CRUD operations for all content types:
+
+**Services, Portfolio, Testimonials, FAQ:**
+- Public GET endpoints for active/approved items
+- Admin endpoints for full CRUD operations
+- For details, see the [Complete API Documentation](../docs/api.md)
+
+**Site Settings:**
+- `GET /api/settings/public` - Public settings for frontend
+- Admin endpoints for managing site config, calculator settings, forms, Telegram integration
+- For details, see [Settings API Testing Guide](docs/SETTINGS_API_TESTING.md)
 
 ### Health Check
 

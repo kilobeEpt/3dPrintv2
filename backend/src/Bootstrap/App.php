@@ -10,11 +10,14 @@ use App\Controllers\TestimonialsController;
 use App\Controllers\FaqController;
 use App\Controllers\ContentController;
 use App\Controllers\SettingsController;
+use App\Controllers\OrdersController;
 use App\Helpers\Response;
+use App\Helpers\TelegramService;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\ErrorMiddleware;
 use App\Services\AuthService;
+use App\Services\OrdersService;
 use Dotenv\Dotenv;
 use Slim\Factory\AppFactory;
 use Slim\App as SlimApp;
@@ -256,6 +259,27 @@ class App
         $this->app->group('/api/admin/stats', function (RouteCollectorProxy $group) use ($contentController) {
             $group->put('', [$contentController, 'updateStats']);
             $group->patch('', [$contentController, 'updateStats']);
+        })->add(new AuthMiddleware($authService, ['admin']));
+
+        // Orders Routes
+        $telegramService = new TelegramService(
+            $this->config['telegram']['botToken'] ?? '',
+            $this->config['telegram']['chatId'] ?? ''
+        );
+        $ordersService = new OrdersService($telegramService);
+        $ordersController = new OrdersController($ordersService);
+
+        // Public Orders Route (submit order/contact)
+        $this->app->post('/api/orders', [$ordersController, 'submit']);
+
+        // Admin Orders Routes
+        $this->app->group('/api/orders', function (RouteCollectorProxy $group) use ($ordersController) {
+            $group->get('', [$ordersController, 'index']);
+            $group->get('/{id}', [$ordersController, 'show']);
+            $group->put('/{id}', [$ordersController, 'update']);
+            $group->patch('/{id}', [$ordersController, 'update']);
+            $group->delete('/{id}', [$ordersController, 'destroy']);
+            $group->post('/{id}/resend-telegram', [$ordersController, 'resendTelegram']);
         })->add(new AuthMiddleware($authService, ['admin']));
 
         // Settings Routes
