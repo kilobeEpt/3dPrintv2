@@ -1,0 +1,277 @@
+{
+  "services": [
+    {
+      "id": "s1",
+      "name": "FDM печать",
+      "slug": "fdm",
+      "icon": "fa-cube",
+      "description": "Печать методом послойного наплавления. Идеально для прототипов и функциональных деталей.",
+      "features": [
+        "Быстрое изготовление",
+        "Низкая стоимость",
+        "Прочные детали",
+        "Широкий выбор материалов"
+      ],
+      "price": "от 50₽/г",
+      "active": true,
+      "featured": false,
+      "order": 1
+    },
+    {
+      "id": "s2",
+      "name": "SLA/SLS печать",
+      "slug": "sla",
+      "icon": "fa-gem",
+      "description": "Высокоточная печать с невероятной детализацией для самых требовательных проектов.",
+      "features": [
+        "Высокая точность",
+        "Гладкая поверхность",
+        "Сложная геометрия",
+        "Идеально для ювелирки"
+      ],
+      "price": "от 200₽/г",
+      "active": true,
+      "featured": true,
+      "order": 2
+    }
+  ],
+  "portfolio": [
+    {
+      "id": "p1",
+      "title": "Прототип корпуса для IoT устройства",
+      "category": "prototype",
+      "description": "Разработка и печать функционального корпуса для устройства интернета вещей с учетом размещения всех компонентов.",
+      "image": "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800",
+      "details": "Материал: ABS, Время печати: 12 часов"
+    },
+    {
+      "id": "p2",
+      "title": "Художественная скульптура",
+      "category": "art",
+      "description": "Печать детализированной скульптуры с последующей профессиональной покраской и отделкой.",
+      "image": "https://images.unsplash.com/photo-1569982175971-d92b01cf8694?w=800",
+      "details": "Материал: Resin, Постобработка: полировка, грунтовка, покраска"
+    }
+  ],
+  "testimonials": [
+    {
+      "id": "t1",
+      "name": "Алексей Иванов",
+      "position": "Директор, Tech Solutions",
+      "avatar": "https://i.pravatar.cc/150?img=1",
+      "rating": 5,
+      "text": "Отличное качество печати! Заказывали прототипы корпусов для нашего устройства. Все выполнено точно в срок, консультации на высшем уровне.",
+      "approved": true,
+      "order": 1
+    },
+    {
+      "id": "t2",
+      "name": "Мария Петрова",
+      "position": "Дизайнер",
+      "avatar": "https://i.pravatar.cc/150?img=2",
+      "rating": 5,
+      "text": "Работаю с этой компанией уже год. Печатают мои художественные проекты с невероятной детализацией. Рекомендую!",
+      "approved": true,
+      "order": 2
+    }
+  ],
+  "faq": [
+    {
+      "id": "faq1",
+      "question": "Какие форматы файлов вы принимаете?",
+      "answer": "Мы работаем с форматами STL, OBJ, 3MF, STEP. Если у вас файл в другом формате, свяжитесь с нами - мы найдем решение.",
+      "active": true,
+      "order": 1
+    },
+    {
+      "id": "faq2",
+      "question": "Сколько времени занимает изготовление?",
+      "answer": "Стандартный срок - 3-5 рабочих дней. Для небольших деталей возможна печать за 1 день. Есть услуга срочного изготовления (24 часа).",
+      "active": true,
+      "order": 2
+    },
+    {
+      "id": "faq3",
+      "question": "Какая минимальная толщина стенок?",
+      "answer": "Для FDM печати минимальная толщина - 1мм, для SLA/SLS - 0.5мм. Рекомендуем консультироваться перед печатью тонкостенных деталей.",
+      "active": true,
+      "order": 3
+    }
+  ],
+  "settings": [{
+    "siteName": "3D Print Pro",
+    "siteDescription": "Профессиональная 3D печать любой сложности",
+    "contactEmail": "info@3dprintpro.ru",
+    "contactPhone": "+7 (999) 123-45-67",
+    "address": "г. Москва, ул. Примерная, д. 123",
+    "workingHours": "Пн-Пт: 9:00 - 18:00\nСб-Вс: Выходной",
+    "timezone": "Europe/Moscow",
+    "socialLinks": {
+      "vk": "",
+      "telegram": "https://t.me/PrintPro_Omsk",
+      "whatsapp": "",
+      "youtube": ""
+    },
+    "theme": "light",
+    "colorPrimary": "#6366f1",
+    "colorSecondary": "#ec4899",
+    "notifications": {
+      "newOrders": true,
+      "newReviews": true,
+      "newMessages": true
+    },
+    "telegram": {
+      "chatId": ""
+    },
+    "telegramNotifications": true,
+    "formFields": {
+      "contact": [
+        {
+          "name": "name",
+          "label": "Ваше имя",
+          "type": "text",
+          "required": true,
+          "enabled": true,
+          "placeholder": "Иван Петров",
+          "order": 1
+        },
+        {
+          "name": "email",
+          "label": "Email",
+          "type": "email",
+          "required": true,
+          "enabled": true,
+          "placeholder": "example@mail.com",
+          "order": 2
+        },
+        {
+          "name": "phone",
+          "label": "Телефон",
+          "type": "tel",
+          "required": true,
+          "enabled": true,
+          "placeholder": "+7 (999) 123-45-67",
+          "order": 3
+        },
+        {
+          "name": "telegram",
+          "label": "Telegram",
+          "type": "text",
+          "required": false,
+          "enabled": true,
+          "placeholder": "@username",
+          "order": 4
+        },
+        {
+          "name": "subject",
+          "label": "Тема обращения",
+          "type": "select",
+          "required": false,
+          "enabled": true,
+          "placeholder": "Выберите тему",
+          "order": 5,
+          "options": [
+            "Расчет стоимости",
+            "Консультация",
+            "Партнерство",
+            "Другое"
+          ]
+        },
+        {
+          "name": "message",
+          "label": "Ваше сообщение",
+          "type": "textarea",
+          "required": true,
+          "enabled": true,
+          "placeholder": "Опишите ваш заказ...",
+          "order": 6
+        }
+      ],
+      "order": []
+    },
+    "calculator": {
+      "materialPrices": {
+        "pla": { "name": "PLA", "price": 50, "technology": "fdm" },
+        "abs": { "name": "ABS", "price": 60, "technology": "fdm" },
+        "petg": { "name": "PETG", "price": 70, "technology": "fdm" },
+        "nylon": { "name": "Nylon", "price": 120, "technology": "fdm" },
+        "tpu": { "name": "TPU (Flex)", "price": 150, "technology": "fdm" },
+        "standard_resin": { "name": "Standard Resin", "price": 200, "technology": "sla" },
+        "tough_resin": { "name": "Tough Resin", "price": 250, "technology": "sla" },
+        "flexible_resin": { "name": "Flexible Resin", "price": 280, "technology": "sla" },
+        "pa12": { "name": "PA12 Nylon", "price": 150, "technology": "sls" },
+        "tpu_sls": { "name": "TPU SLS", "price": 180, "technology": "sls" }
+      },
+      "servicePrices": {
+        "modeling": { "name": "3D моделирование", "price": 500, "unit": "час" },
+        "postProcessing": { "name": "Постобработка", "price": 300, "unit": "шт" },
+        "painting": { "name": "Покраска", "price": 500, "unit": "шт" },
+        "express": { "name": "Срочное изготовление", "price": 1000, "unit": "заказ" }
+      },
+      "qualityMultipliers": {
+        "draft": { "name": "Черновое", "multiplier": 0.8, "time": 0.7 },
+        "normal": { "name": "Нормальное", "multiplier": 1.0, "time": 1.0 },
+        "high": { "name": "Высокое", "multiplier": 1.3, "time": 1.4 },
+        "ultra": { "name": "Ультра", "multiplier": 1.6, "time": 2.0 }
+      },
+      "discounts": [
+        { "minQuantity": 10, "percent": 10 },
+        { "minQuantity": 50, "percent": 15 },
+        { "minQuantity": 100, "percent": 20 }
+      ]
+    }
+  }],
+  "content": [{
+    "hero": {
+      "title": "идеи в реальность",
+      "subtitle": "Профессиональная 3D печать любой сложности. Быстро, качественно, доступно.",
+      "features": [
+        "Печать от 1 часа",
+        "15+ материалов",
+        "Гарантия качества"
+      ]
+    },
+    "about": {
+      "title": "Лидеры в области 3D печати",
+      "description": "Мы - команда профессионалов с более чем 12-летним опытом в области аддитивных технологий. Наша миссия - делать 3D печать доступной и качественной для каждого.",
+      "features": [
+        {
+          "title": "Современное оборудование",
+          "description": "Работаем на принтерах последнего поколения"
+        },
+        {
+          "title": "Опытная команда",
+          "description": "15 специалистов с профильным образованием"
+        },
+        {
+          "title": "Гарантия качества",
+          "description": "Все изделия проходят контроль качества"
+        }
+      ]
+    }
+  }],
+  "stats": {
+    "totalProjects": 1500,
+    "happyClients": 850,
+    "yearsExperience": 12,
+    "awards": 25
+  },
+  "orders": [
+    {
+      "id": "order1",
+      "orderNumber": "ORD-20231115-0001",
+      "type": "contact",
+      "status": "new",
+      "name": "Тестовый Заказчик",
+      "email": "test@example.com",
+      "phone": "+7 (999) 000-00-00",
+      "telegram": "@testuser",
+      "service": "FDM печать",
+      "subject": "Расчет стоимости",
+      "message": "Здравствуйте! Хочу узнать стоимость печати детали.",
+      "amount": 0,
+      "calculator_data": null,
+      "telegram_sent": false
+    }
+  ]
+}

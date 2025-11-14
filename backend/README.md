@@ -54,6 +54,11 @@ backend/
 │       └── seed-admin-user.php  # Admin user seeder (uses .env)
 ├── bin/
 │   └── reset-password.php       # Password reset CLI utility
+├── scripts/
+│   ├── import_local_data.php    # Data migration importer CLI
+│   ├── sample-export.json       # Sample export file for testing
+│   ├── README.md                # Scripts documentation
+│   └── QUICKSTART.md            # Quick start guide
 ├── docs/
 │   ├── AUTHENTICATION.md        # Authentication guide
 │   ├── SETTINGS_API_TESTING.md  # Settings API testing
@@ -208,6 +213,50 @@ If the database is not configured or unreachable, the health check will return:
   }
 }
 ```
+
+## Data Migration
+
+### Importing localStorage Data
+
+If you're migrating from the localStorage-based version to MySQL, use the data importer script:
+
+```bash
+cd backend/scripts
+
+# 1. Export data from browser (F12 console)
+# db.exportData()
+
+# 2. Test import with sample data
+php import_local_data.php --file=sample-export.json --dry-run --verbose
+
+# 3. Import your data
+php import_local_data.php --file=your-export.json --dry-run
+php import_local_data.php --file=your-export.json --verbose
+```
+
+**Key Features:**
+- ✅ Automatic ID regeneration
+- ✅ Timestamp population
+- ✅ Service features normalization
+- ✅ Calculator config mapping
+- ✅ Transaction-safe (rollback on error)
+- ✅ Dry-run mode for testing
+- ✅ Selective table import
+- ✅ Detailed progress reporting
+
+**Common Options:**
+```bash
+--dry-run              # Preview without changes
+--verbose              # Show detailed progress
+--force                # Overwrite existing data
+--skip-orders          # Skip specific tables
+--skip-settings
+```
+
+**Documentation:**
+- [Migration Guide](../docs/migration.md) - Complete step-by-step guide
+- [Scripts README](scripts/README.md) - Detailed script documentation
+- [Quick Start](scripts/QUICKSTART.md) - Get started in 5 minutes
 
 ## Production Deployment
 
