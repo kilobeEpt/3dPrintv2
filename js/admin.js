@@ -32,20 +32,41 @@ class AdminPanel {
     // AUTHENTICATION
     // ========================================
 
-    checkAuth() {
-        const authData = localStorage.getItem('adminAuth');
+    async checkAuth() {
+        const token = this.api.getToken();
 
-        if (authData) {
-            try {
-                this.currentUser = JSON.parse(authData);
+        if (token) {
+            // Validate token with backend
+            const result = await this.api.getCurrentUser();
+            
+            if (result.success && result.data.data) {
+                this.currentUser = result.data.data;
+                this.updateUserDisplay();
                 this.showDashboard();
                 this.initAdminPanel();
-            } catch (error) {
-                this.logout();
+            } else {
+                // Token invalid, show login
+                this.api.clearTokens();
+                this.showLoginScreen();
             }
         } else {
             this.showLoginScreen();
         }
+    }
+
+    updateUserDisplay() {
+        if (!this.currentUser) return;
+        
+        // Update sidebar user info
+        const sidebarUserName = document.querySelector('.sidebar-footer .user-info strong');
+        const sidebarUserLogin = document.querySelector('.sidebar-footer .user-info small');
+        
+        if (sidebarUserName) sidebarUserName.textContent = this.currentUser.name || 'Администратор';
+        if (sidebarUserLogin) sidebarUserLogin.textContent = this.currentUser.login || 'admin';
+        
+        // Update header user menu
+        const headerUserName = document.querySelector('#userMenuBtn span');
+        if (headerUserName) headerUserName.textContent = this.currentUser.name || 'Администратор';
     }
 
     showLoginScreen() {
@@ -63,24 +84,30 @@ class AdminPanel {
         const form = document.getElementById('loginForm');
         if (!form) return;
 
-        form.addEventListener('submit', (e) => {
+        // Listen for 401 unauthorized events
+        window.addEventListener('admin:unauthorized', () => {
+            this.showNotification('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
+            this.currentUser = null;
+            this.showLoginScreen();
+        });
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const login = document.getElementById('adminLogin').value;
+            const loginInput = document.getElementById('adminLogin').value;
             const password = document.getElementById('adminPassword').value;
+            const submitBtn = form.querySelector('button[type="submit"]');
 
-            if (login === 'admin' && password === 'admin123') {
-                const userData = {
-                    id: 1,
-                    login: login,
-                    name: 'Администратор',
-                    role: 'admin',
-                    loginTime: new Date().toISOString()
-                };
+            // Disable form during submission
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+            form.querySelectorAll('input').forEach(input => input.disabled = true);
 
-                localStorage.setItem('adminAuth', JSON.stringify(userData));
-                this.currentUser = userData;
+            const result = await this.api.login(loginInput, password);
 
+            if (result.success) {
+                this.currentUser = result.user;
+                this.updateUserDisplay();
                 this.showNotification('Вход выполнен успешно!', 'success');
 
                 setTimeout(() => {
@@ -88,18 +115,24 @@ class AdminPanel {
                     this.initAdminPanel();
                 }, 500);
             } else {
-                this.showNotification('Неверный логин или пароль', 'error');
+                this.showNotification(result.error || 'Неверный логин или пароль', 'error');
+                document.getElementById('adminPassword').value = '';
                 document.getElementById('adminPassword').classList.add('error-shake');
                 setTimeout(() => {
                     document.getElementById('adminPassword').classList.remove('error-shake');
                 }, 500);
+
+                // Re-enable form
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
+                form.querySelectorAll('input').forEach(input => input.disabled = false);
             }
         });
     }
 
-    logout() {
+    async logout() {
         if (confirm('Вы уверены, что хотите выйти?')) {
-            localStorage.removeItem('adminAuth');
+            await this.api.logout();
             this.currentUser = null;
             location.reload();
         }
@@ -183,6 +216,9 @@ class AdminPanel {
                 break;
             case 'testimonials':
                 this.loadTestimonials();
+                break;
+            case 'faq':
+                this.loadFAQ();
                 break;
             case 'calculator':
                 this.loadCalculatorSettings();
@@ -1424,18 +1460,24 @@ class AdminPanel {
     // PORTFOLIO MANAGEMENT
     // ========================================
 
-    loadPortfolio() {
-        const items = db.getData('portfolio') || [];
-        this.renderPortfolio(items);
+    async loadPortfolio() {
+        await this.renderPortfolio();
     }
 
-    renderPortfolio(items = null) {
-        if (!items) {
-            items = db.getData('portfolio') || [];
-        }
-
+    async renderPortfolio() {
         const grid = document.getElementById('portfolioAdminGrid');
         if (!grid) return;
+
+        grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--admin-text-secondary); grid-column: 1/-1;"><i class="fas fa-spinner fa-spin"></i> Загрузка портфолио...</div>';
+
+        const result = await this.api.fetch('/api/portfolio');
+
+        if (!result.success) {
+            grid.innerHTML = `<p style="text-align: center; padding: 40px; color: var(--admin-danger); grid-column: 1/-1;">Ошибка загрузки: ${result.error}</p>`;
+            return;
+        }
+
+        const items = result.data.data || [];
 
         if (items.length === 0) {
             grid.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--admin-text-secondary); grid-column: 1/-1;">Портфолио пусто. Добавьте первую работу!</p>';
@@ -1444,7 +1486,7 @@ class AdminPanel {
 
         grid.innerHTML = items.map(item => `
             <div class="portfolio-admin-item hover-lift" style="background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                <img src="${item.image}" alt="${item.title}" style="width: 100%; height: 200px; object-fit: cover;" loading="lazy">
+                <img src="${item.image_url}" alt="${item.title}" style="width: 100%; height: 200px; object-fit: cover;" loading="lazy">
                 <div style="padding: 20px;">
                     <h3 style="margin-bottom: 10px; font-size: 18px;">${item.title}</h3>
                     <p style="color: var(--admin-text-secondary); font-size: 14px; margin-bottom: 15px; line-height: 1.5;">${item.description}</p>
@@ -1453,10 +1495,10 @@ class AdminPanel {
                             ${this.getCategoryName(item.category)}
                         </span>
                         <div class="action-btns">
-                            <button class="action-btn edit" onclick="admin.editPortfolio('${item.id}')">
+                            <button class="action-btn edit" onclick="admin.editPortfolio(${item.id})">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="action-btn delete" onclick="admin.deletePortfolio('${item.id}')">
+                            <button class="action-btn delete" onclick="admin.deletePortfolio(${item.id})">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -1495,7 +1537,7 @@ class AdminPanel {
                 placeholder: 'Краткое описание проекта'
             }),
             new FormField({
-                name: 'image',
+                name: 'image_url',
                 label: 'URL изображения',
                 type: 'url',
                 required: true,
@@ -1510,16 +1552,42 @@ class AdminPanel {
             })
         ];
 
-        this.showFormModal('Добавить работу в портфолио', fields, (formData) => {
-            db.addItem('portfolio', formData);
+        this.showFormModal('Добавить работу в портфолио', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            const result = await this.api.fetch('/api/admin/portfolio', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+
+            if (!result.success) {
+                this.showNotification(`Ошибка: ${result.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
             this.showNotification('Работа добавлена в портфолио', 'success');
-            this.renderPortfolio();
+            this.closeAllModals();
+            await this.renderPortfolio();
         });
     }
 
-    editPortfolio(id) {
-        const item = db.getItem('portfolio', id);
-        if (!item) return;
+    async editPortfolio(id) {
+        const result = await this.api.fetch(`/api/portfolio/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки: ${result.error}`, 'error');
+            return;
+        }
+
+        const item = result.data.data;
 
         const fields = [
             new FormField({
@@ -1550,11 +1618,11 @@ class AdminPanel {
                 value: item.description
             }),
             new FormField({
-                name: 'image',
+                name: 'image_url',
                 label: 'URL изображения',
                 type: 'url',
                 required: true,
-                value: item.image
+                value: item.image_url
             }),
             new FormField({
                 name: 'details',
@@ -1564,19 +1632,47 @@ class AdminPanel {
             })
         ];
 
-        this.showFormModal('Редактировать работу', fields, (formData) => {
-            db.updateItem('portfolio', id, formData);
+        this.showFormModal('Редактировать работу', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            const updateResult = await this.api.fetch(`/api/admin/portfolio/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(formData)
+            });
+
+            if (!updateResult.success) {
+                this.showNotification(`Ошибка: ${updateResult.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
             this.showNotification('Работа обновлена', 'success');
-            this.renderPortfolio();
+            this.closeAllModals();
+            await this.renderPortfolio();
         });
     }
 
-    deletePortfolio(id) {
+    async deletePortfolio(id) {
         if (!confirm('Удалить эту работу из портфолио?')) return;
 
-        db.deleteItem('portfolio', id);
+        const result = await this.api.fetch(`/api/admin/portfolio/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!result.success) {
+            this.showNotification(`Ошибка удаления: ${result.error}`, 'error');
+            return;
+        }
+
         this.showNotification('Работа удалена', 'success');
-        this.renderPortfolio();
+        await this.renderPortfolio();
     }
 
     getCategoryName(category) {
@@ -1592,20 +1688,24 @@ class AdminPanel {
     // SERVICES MANAGEMENT
     // ========================================
 
-    loadServices() {
-        const services = db.getData('services') || [];
-        this.renderServices(services);
+    async loadServices() {
+        await this.renderServices();
     }
 
-    renderServices(services = null) {
-        if (!services) {
-            services = db.getData('services') || [];
-        }
-
-        services.sort((a, b) => (a.order || 0) - (b.order || 0));
-
+    async renderServices() {
         const list = document.getElementById('servicesAdminList');
         if (!list) return;
+
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--admin-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Загрузка услуг...</div>';
+
+        const result = await this.api.fetch('/api/admin/services');
+
+        if (!result.success) {
+            list.innerHTML = `<p style="text-align: center; padding: 40px; color: var(--admin-danger);">Ошибка загрузки: ${result.error}</p>`;
+            return;
+        }
+
+        const services = result.data.data || [];
 
         if (services.length === 0) {
             list.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--admin-text-secondary);">Услуг пока нет</p>';
@@ -1626,23 +1726,22 @@ class AdminPanel {
                     </div>
                     <p style="color: var(--admin-text-secondary); margin-bottom: 10px;">${service.description}</p>
                     <strong style="color: var(--admin-primary);">${service.price}</strong>
+                    ${service.features && service.features.length > 0 ? `
+                        <div style="margin-top: 10px; font-size: 13px; color: var(--admin-text-secondary);">
+                            <strong>Возможности:</strong> ${service.features.map(f => typeof f === 'string' ? f : f.feature).join(', ')}
+                        </div>
+                    ` : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <label class="toggle-switch">
-                        <input type="checkbox" ${service.active ? 'checked' : ''} onchange="admin.toggleService('${service.id}')">
+                        <input type="checkbox" ${service.active ? 'checked' : ''} onchange="admin.toggleService(${service.id})">
                         <span class="toggle-slider"></span>
                     </label>
                     <div class="action-btns">
-                        <button class="action-btn" onclick="admin.moveService('${service.id}', 'up')" title="Вверх">
-                            <i class="fas fa-arrow-up"></i>
-                        </button>
-                        <button class="action-btn" onclick="admin.moveService('${service.id}', 'down')" title="Вниз">
-                            <i class="fas fa-arrow-down"></i>
-                        </button>
-                        <button class="action-btn edit" onclick="admin.editService('${service.id}')">
+                        <button class="action-btn edit" onclick="admin.editService(${service.id})">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="action-btn delete" onclick="admin.deleteService('${service.id}')">
+                        <button class="action-btn delete" onclick="admin.deleteService(${service.id})">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1664,8 +1763,8 @@ class AdminPanel {
                 name: 'slug',
                 label: 'Слаг (для URL)',
                 type: 'text',
-                required: true,
-                placeholder: 'fdm-pechat'
+                required: false,
+                placeholder: 'fdm-pechat (оставьте пустым для автогенерации)'
             }),
             new FormField({
                 name: 'icon',
@@ -1689,6 +1788,13 @@ class AdminPanel {
                 placeholder: 'от 50₽/г'
             }),
             new FormField({
+                name: 'features',
+                label: 'Возможности (через запятую)',
+                type: 'textarea',
+                placeholder: 'Быстрая печать, Высокая точность, Низкая стоимость',
+                helpText: 'Перечислите возможности услуги через запятую'
+            }),
+            new FormField({
                 name: 'featured',
                 label: '',
                 type: 'checkbox',
@@ -1696,23 +1802,61 @@ class AdminPanel {
             })
         ];
 
-        this.showFormModal('Добавить услугу', fields, (formData) => {
-            const service = {
-                ...formData,
-                features: [],
-                active: true,
-                order: (db.getData('services') || []).length + 1
+        this.showFormModal('Добавить услугу', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            // Convert features from comma-separated string to array
+            const features = formData.features 
+                ? formData.features.split(',').map(f => f.trim()).filter(f => f)
+                : [];
+
+            const serviceData = {
+                name: formData.name,
+                slug: formData.slug || '',
+                icon: formData.icon,
+                description: formData.description,
+                price: formData.price,
+                features: features,
+                featured: formData.featured || false,
+                active: true
             };
 
-            db.addItem('services', service);
+            const result = await this.api.fetch('/api/admin/services', {
+                method: 'POST',
+                body: JSON.stringify(serviceData)
+            });
+
+            if (!result.success) {
+                this.showNotification(`Ошибка: ${result.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
             this.showNotification('Услуга добавлена', 'success');
-            this.renderServices();
+            this.closeAllModals();
+            await this.renderServices();
         });
     }
 
-    editService(id) {
-        const service = db.getItem('services', id);
-        if (!service) return;
+    async editService(id) {
+        const result = await this.api.fetch(`/api/services/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки: ${result.error}`, 'error');
+            return;
+        }
+
+        const service = result.data.data;
+        const featuresStr = service.features 
+            ? service.features.map(f => typeof f === 'string' ? f : f.feature).join(', ')
+            : '';
 
         const fields = [
             new FormField({
@@ -1726,7 +1870,7 @@ class AdminPanel {
                 name: 'slug',
                 label: 'Слаг',
                 type: 'text',
-                required: true,
+                required: false,
                 value: service.slug
             }),
             new FormField({
@@ -1751,77 +1895,134 @@ class AdminPanel {
                 value: service.price
             }),
             new FormField({
+                name: 'features',
+                label: 'Возможности (через запятую)',
+                type: 'textarea',
+                value: featuresStr,
+                helpText: 'Перечислите возможности услуги через запятую'
+            }),
+            new FormField({
                 name: 'featured',
                 label: '',
                 type: 'checkbox',
                 placeholder: 'Популярное',
                 value: service.featured
+            }),
+            new FormField({
+                name: 'active',
+                label: '',
+                type: 'checkbox',
+                placeholder: 'Активна',
+                value: service.active
             })
         ];
 
-        this.showFormModal('Редактировать услугу', fields, (formData) => {
-            db.updateItem('services', id, formData);
+        this.showFormModal('Редактировать услугу', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            // Convert features from comma-separated string to array
+            const features = formData.features 
+                ? formData.features.split(',').map(f => f.trim()).filter(f => f)
+                : [];
+
+            const serviceData = {
+                name: formData.name,
+                slug: formData.slug || '',
+                icon: formData.icon,
+                description: formData.description,
+                price: formData.price,
+                features: features,
+                featured: formData.featured || false,
+                active: formData.active !== false
+            };
+
+            const updateResult = await this.api.fetch(`/api/admin/services/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(serviceData)
+            });
+
+            if (!updateResult.success) {
+                this.showNotification(`Ошибка: ${updateResult.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
             this.showNotification('Услуга обновлена', 'success');
-            this.renderServices();
+            this.closeAllModals();
+            await this.renderServices();
         });
     }
 
-    deleteService(id) {
+    async deleteService(id) {
         if (!confirm('Удалить эту услугу?')) return;
 
-        db.deleteItem('services', id);
-        this.showNotification('Услуга удалена', 'success');
-        this.renderServices();
-    }
+        const result = await this.api.fetch(`/api/admin/services/${id}`, {
+            method: 'DELETE'
+        });
 
-    toggleService(id) {
-        const service = db.getItem('services', id);
-        if (service) {
-            db.updateItem('services', id, { active: !service.active });
-            this.showNotification(`Услуга ${!service.active ? 'активирована' : 'деактивирована'}`, 'success');
-        }
-    }
-
-    moveService(id, direction) {
-        const services = db.getData('services') || [];
-        const index = services.findIndex(s => s.id === id);
-
-        if (index === -1) return;
-
-        if (direction === 'up' && index > 0) {
-            [services[index], services[index - 1]] = [services[index - 1], services[index]];
-        } else if (direction === 'down' && index < services.length - 1) {
-            [services[index], services[index + 1]] = [services[index + 1], services[index]];
-        } else {
+        if (!result.success) {
+            this.showNotification(`Ошибка удаления: ${result.error}`, 'error');
             return;
         }
 
-        services.forEach((service, i) => {
-            service.order = i + 1;
+        this.showNotification('Услуга удалена', 'success');
+        await this.renderServices();
+    }
+
+    async toggleService(id) {
+        const result = await this.api.fetch(`/api/services/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка: ${result.error}`, 'error');
+            return;
+        }
+
+        const service = result.data.data;
+        const newActive = !service.active;
+
+        const updateResult = await this.api.fetch(`/api/admin/services/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ active: newActive })
         });
 
-        db.saveData('services', services);
-        this.renderServices();
+        if (!updateResult.success) {
+            this.showNotification(`Ошибка: ${updateResult.error}`, 'error');
+            return;
+        }
+
+        this.showNotification(`Услуга ${newActive ? 'активирована' : 'деактивирована'}`, 'success');
+        await this.renderServices();
     }
 
     // ========================================
     // TESTIMONIALS MANAGEMENT
     // ========================================
 
-    loadTestimonials() {
-        const testimonials = db.getData('testimonials') || [];
-        this.renderTestimonials(testimonials);
+    async loadTestimonials() {
+        await this.renderTestimonials();
     }
 
-    renderTestimonials(testimonials = null) {
-        if (!testimonials) {
-            testimonials = db.getData('testimonials') || [];
-        }
-
-        testimonials.sort((a, b) => (a.order || 0) - (b.order || 0));
-
+    async renderTestimonials() {
         const grid = document.getElementById('testimonialsAdminGrid');
         if (!grid) return;
+
+        grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--admin-text-secondary); grid-column: 1/-1;"><i class="fas fa-spinner fa-spin"></i> Загрузка отзывов...</div>';
+
+        const result = await this.api.fetch('/api/admin/testimonials');
+
+        if (!result.success) {
+            grid.innerHTML = `<p style="text-align: center; padding: 40px; color: var(--admin-danger); grid-column: 1/-1;">Ошибка загрузки: ${result.error}</p>`;
+            return;
+        }
+
+        const testimonials = result.data.data || [];
 
         if (testimonials.length === 0) {
             grid.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--admin-text-secondary); grid-column: 1/-1;">Отзывов пока нет</p>';
@@ -1831,7 +2032,7 @@ class AdminPanel {
         grid.innerHTML = testimonials.map(item => `
             <div class="testimonial-admin-item" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                    <img src="${item.avatar}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+                    <img src="${item.avatar_url}" alt="${item.name}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
                     <div style="flex: 1;">
                         <h4 style="margin-bottom: 5px;">${item.name}</h4>
                         <p style="color: var(--admin-text-secondary); font-size: 14px; margin-bottom: 5px;">${item.position}</p>
@@ -1846,19 +2047,13 @@ class AdminPanel {
                         ${item.approved ? 'Опубликован' : 'На модерации'}
                     </span>
                     <div class="action-btns">
-                        ${!item.approved ? `<button class="action-btn" style="background: rgba(16,185,129,0.1); color: var(--admin-success);" onclick="admin.approveTestimonial('${item.id}')">
+                        ${!item.approved ? `<button class="action-btn" style="background: rgba(16,185,129,0.1); color: var(--admin-success);" onclick="admin.approveTestimonial(${item.id})">
                             <i class="fas fa-check"></i>
                         </button>` : ''}
-                        <button class="action-btn" onclick="admin.moveTestimonial('${item.id}', 'up')">
-                            <i class="fas fa-arrow-up"></i>
-                        </button>
-                        <button class="action-btn" onclick="admin.moveTestimonial('${item.id}', 'down')">
-                            <i class="fas fa-arrow-down"></i>
-                        </button>
-                        <button class="action-btn edit" onclick="admin.editTestimonial('${item.id}')">
+                        <button class="action-btn edit" onclick="admin.editTestimonial(${item.id})">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="action-btn delete" onclick="admin.deleteTestimonial('${item.id}')">
+                        <button class="action-btn delete" onclick="admin.deleteTestimonial(${item.id})">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1884,7 +2079,7 @@ class AdminPanel {
                 placeholder: 'Директор, Tech Solutions'
             }),
             new FormField({
-                name: 'avatar',
+                name: 'avatar_url',
                 label: 'URL аватара',
                 type: 'url',
                 required: true,
@@ -1915,22 +2110,51 @@ class AdminPanel {
             })
         ];
 
-        this.showFormModal('Добавить отзыв', fields, (formData) => {
-            const testimonial = {
-                ...formData,
+        this.showFormModal('Добавить отзыв', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            const testimonialData = {
+                name: formData.name,
+                position: formData.position,
+                avatar_url: formData.avatar_url,
                 rating: parseInt(formData.rating),
-                order: (db.getData('testimonials') || []).length + 1
+                text: formData.text,
+                approved: formData.approved || false
             };
 
-            db.addItem('testimonials', testimonial);
+            const result = await this.api.fetch('/api/admin/testimonials', {
+                method: 'POST',
+                body: JSON.stringify(testimonialData)
+            });
+
+            if (!result.success) {
+                this.showNotification(`Ошибка: ${result.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
             this.showNotification('Отзыв добавлен', 'success');
-            this.renderTestimonials();
+            this.closeAllModals();
+            await this.renderTestimonials();
         });
     }
 
-    editTestimonial(id) {
-        const item = db.getItem('testimonials', id);
-        if (!item) return;
+    async editTestimonial(id) {
+        const result = await this.api.fetch(`/api/testimonials/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки: ${result.error}`, 'error');
+            return;
+        }
+
+        const item = result.data.data;
 
         const fields = [
             new FormField({
@@ -1948,11 +2172,11 @@ class AdminPanel {
                 value: item.position
             }),
             new FormField({
-                name: 'avatar',
+                name: 'avatar_url',
                 label: 'URL аватара',
                 type: 'url',
                 required: true,
-                value: item.avatar
+                value: item.avatar_url
             }),
             new FormField({
                 name: 'rating',
@@ -1982,51 +2206,288 @@ class AdminPanel {
             })
         ];
 
-        this.showFormModal('Редактировать отзыв', fields, (formData) => {
-            db.updateItem('testimonials', id, {
-                ...formData,
-                rating: parseInt(formData.rating)
+        this.showFormModal('Редактировать отзыв', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            const testimonialData = {
+                name: formData.name,
+                position: formData.position,
+                avatar_url: formData.avatar_url,
+                rating: parseInt(formData.rating),
+                text: formData.text,
+                approved: formData.approved !== false
+            };
+
+            const updateResult = await this.api.fetch(`/api/admin/testimonials/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(testimonialData)
             });
+
+            if (!updateResult.success) {
+                this.showNotification(`Ошибка: ${updateResult.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
             this.showNotification('Отзыв обновлён', 'success');
-            this.renderTestimonials();
+            this.closeAllModals();
+            await this.renderTestimonials();
         });
     }
 
-    deleteTestimonial(id) {
+    async deleteTestimonial(id) {
         if (!confirm('Удалить этот отзыв?')) return;
 
-        db.deleteItem('testimonials', id);
-        this.showNotification('Отзыв удалён', 'success');
-        this.renderTestimonials();
-    }
+        const result = await this.api.fetch(`/api/admin/testimonials/${id}`, {
+            method: 'DELETE'
+        });
 
-    approveTestimonial(id) {
-        db.updateItem('testimonials', id, { approved: true });
-        this.showNotification('Отзыв одобрен', 'success');
-        this.renderTestimonials();
-    }
-
-    moveTestimonial(id, direction) {
-        const items = db.getData('testimonials') || [];
-        const index = items.findIndex(t => t.id === id);
-
-        if (index === -1) return;
-
-        if (direction === 'up' && index > 0) {
-            [items[index], items[index - 1]] = [items[index - 1], items[index]];
-        } else if (direction === 'down' && index < items.length - 1) {
-            [items[index], items[index + 1]] = [items[index + 1], items[index]];
-        } else {
+        if (!result.success) {
+            this.showNotification(`Ошибка удаления: ${result.error}`, 'error');
             return;
         }
 
-        items.forEach((item, i) => {
-            item.order = i + 1;
+        this.showNotification('Отзыв удалён', 'success');
+        await this.renderTestimonials();
+    }
+
+    async approveTestimonial(id) {
+        const result = await this.api.fetch(`/api/admin/testimonials/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ approved: true })
         });
 
-        db.saveData('testimonials', items);
-        this.renderTestimonials();
+        if (!result.success) {
+            this.showNotification(`Ошибка: ${result.error}`, 'error');
+            return;
+        }
+
+        this.showNotification('Отзыв одобрен', 'success');
+        await this.renderTestimonials();
     }
+
+    // ========================================
+    // FAQ MANAGEMENT
+    // ========================================
+
+    async loadFAQ() {
+        await this.renderFAQ();
+    }
+
+    async renderFAQ() {
+        const list = document.getElementById('faqAdminList');
+        if (!list) return;
+
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--admin-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Загрузка FAQ...</div>';
+
+        const result = await this.api.fetch('/api/admin/faq');
+
+        if (!result.success) {
+            list.innerHTML = `<p style="text-align: center; padding: 40px; color: var(--admin-danger);">Ошибка загрузки: ${result.error}</p>`;
+            return;
+        }
+
+        const items = result.data.data || [];
+
+        if (items.length === 0) {
+            list.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--admin-text-secondary);">Вопросов пока нет</p>';
+            return;
+        }
+
+        list.innerHTML = items.map(item => `
+            <div class="faq-admin-item" style="background: white; padding: 25px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: start; gap: 20px;">
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; color: var(--admin-primary);">
+                            <i class="fas fa-question-circle"></i> ${item.question}
+                        </h4>
+                        <p style="color: var(--admin-text-secondary); line-height: 1.6;">${item.answer}</p>
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 15px;">
+                            <span class="status-badge ${item.active ? 'status-completed' : 'status-cancelled'}">
+                                ${item.active ? 'Активен' : 'Неактивен'}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label class="toggle-switch">
+                            <input type="checkbox" ${item.active ? 'checked' : ''} onchange="admin.toggleFAQ(${item.id})">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="action-btns">
+                            <button class="action-btn edit" onclick="admin.editFAQ(${item.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="action-btn delete" onclick="admin.deleteFAQ(${item.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    addFAQ() {
+        const fields = [
+            new FormField({
+                name: 'question',
+                label: 'Вопрос',
+                type: 'text',
+                required: true,
+                placeholder: 'Например: Какие материалы вы используете?'
+            }),
+            new FormField({
+                name: 'answer',
+                label: 'Ответ',
+                type: 'textarea',
+                required: true,
+                placeholder: 'Подробный ответ на вопрос...'
+            }),
+            new FormField({
+                name: 'active',
+                label: '',
+                type: 'checkbox',
+                placeholder: 'Опубликовать',
+                value: true
+            })
+        ];
+
+        this.showFormModal('Добавить вопрос в FAQ', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            const result = await this.api.fetch('/api/admin/faq', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+
+            if (!result.success) {
+                this.showNotification(`Ошибка: ${result.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
+            this.showNotification('Вопрос добавлен', 'success');
+            this.closeAllModals();
+            await this.renderFAQ();
+        });
+    }
+
+    async editFAQ(id) {
+        const result = await this.api.fetch(`/api/faq/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки: ${result.error}`, 'error');
+            return;
+        }
+
+        const item = result.data.data;
+
+        const fields = [
+            new FormField({
+                name: 'question',
+                label: 'Вопрос',
+                type: 'text',
+                required: true,
+                value: item.question
+            }),
+            new FormField({
+                name: 'answer',
+                label: 'Ответ',
+                type: 'textarea',
+                required: true,
+                value: item.answer
+            }),
+            new FormField({
+                name: 'active',
+                label: '',
+                type: 'checkbox',
+                placeholder: 'Активен',
+                value: item.active
+            })
+        ];
+
+        this.showFormModal('Редактировать вопрос FAQ', fields, async (formData) => {
+            const submitBtn = document.querySelector('.modal button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            }
+
+            const updateResult = await this.api.fetch(`/api/admin/faq/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(formData)
+            });
+
+            if (!updateResult.success) {
+                this.showNotification(`Ошибка: ${updateResult.error}`, 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                }
+                return;
+            }
+
+            this.showNotification('Вопрос обновлён', 'success');
+            this.closeAllModals();
+            await this.renderFAQ();
+        });
+    }
+
+    async deleteFAQ(id) {
+        if (!confirm('Удалить этот вопрос из FAQ?')) return;
+
+        const result = await this.api.fetch(`/api/admin/faq/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!result.success) {
+            this.showNotification(`Ошибка удаления: ${result.error}`, 'error');
+            return;
+        }
+
+        this.showNotification('Вопрос удалён', 'success');
+        await this.renderFAQ();
+    }
+
+    async toggleFAQ(id) {
+        const result = await this.api.fetch(`/api/faq/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка: ${result.error}`, 'error');
+            return;
+        }
+
+        const item = result.data.data;
+        const newActive = !item.active;
+
+        const updateResult = await this.api.fetch(`/api/admin/faq/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ active: newActive })
+        });
+
+        if (!updateResult.success) {
+            this.showNotification(`Ошибка: ${updateResult.error}`, 'error');
+            return;
+        }
+
+        this.showNotification(`Вопрос ${newActive ? 'активирован' : 'деактивирован'}`, 'success');
+        await this.renderFAQ();
+    }
+
     // ========================================
     // CALCULATOR SETTINGS (ИСПРАВЛЕНО #9)
     // ========================================
