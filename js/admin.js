@@ -2489,26 +2489,43 @@ class AdminPanel {
     }
 
     // ========================================
-    // CALCULATOR SETTINGS (ИСПРАВЛЕНО #9)
+    // CALCULATOR SETTINGS (Backend API Integration)
     // ========================================
 
-    loadCalculatorSettings() {
+    async loadCalculatorSettings() {
         console.log('⚙️ Загрузка настроек калькулятора...');
 
-        const settings = db.getOrCreateSettings();
+        // Show loading state
+        const container = document.getElementById('materialPrices');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--admin-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+        }
 
+        const result = await this.api.fetch('/api/settings');
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки настроек: ${result.error}`, 'error');
+            return;
+        }
+
+        const settings = result.data.data;
+
+        // Store settings for rendering
+        this.currentSettings = settings;
+
+        // Update CONFIG with loaded settings
         if (settings.calculator) {
-            if (settings.calculator.materialPrices) {
-                CONFIG.materialPrices = settings.calculator.materialPrices;
+            if (settings.calculator.materials) {
+                CONFIG.materialPrices = this.transformMaterialsFromAPI(settings.calculator.materials);
             }
-            if (settings.calculator.servicePrices) {
-                CONFIG.servicePrices = settings.calculator.servicePrices;
+            if (settings.calculator.services) {
+                CONFIG.servicePrices = this.transformServicesFromAPI(settings.calculator.services);
             }
-            if (settings.calculator.qualityMultipliers) {
-                CONFIG.qualityMultipliers = settings.calculator.qualityMultipliers;
+            if (settings.calculator.quality_levels) {
+                CONFIG.qualityMultipliers = this.transformQualityFromAPI(settings.calculator.quality_levels);
             }
-            if (settings.calculator.discounts) {
-                CONFIG.discounts = settings.calculator.discounts;
+            if (settings.calculator.volume_discounts) {
+                CONFIG.discounts = this.transformDiscountsFromAPI(settings.calculator.volume_discounts);
             }
         }
 
@@ -2516,6 +2533,49 @@ class AdminPanel {
         this.renderServicePrices();
         this.renderDiscounts();
         this.renderQualityMultipliers();
+    }
+
+    transformMaterialsFromAPI(materials) {
+        const result = {};
+        materials.forEach(mat => {
+            result[mat.material_key] = {
+                name: mat.name,
+                price: mat.price,
+                technology: mat.technology
+            };
+        });
+        return result;
+    }
+
+    transformServicesFromAPI(services) {
+        const result = {};
+        services.forEach(svc => {
+            result[svc.service_key] = {
+                name: svc.name,
+                price: svc.price,
+                unit: svc.unit
+            };
+        });
+        return result;
+    }
+
+    transformQualityFromAPI(qualityLevels) {
+        const result = {};
+        qualityLevels.forEach(ql => {
+            result[ql.quality_key] = {
+                name: ql.name,
+                multiplier: ql.price_multiplier,
+                time: ql.time_multiplier
+            };
+        });
+        return result;
+    }
+
+    transformDiscountsFromAPI(discounts) {
+        return discounts.map(d => ({
+            minQuantity: d.min_quantity,
+            percent: d.discount_percent
+        }));
     }
 
     renderMaterialPrices() {
@@ -2587,10 +2647,16 @@ class AdminPanel {
         }
     }
 
-    saveCalculatorSettings() {
+    async saveCalculatorSettings() {
         console.log('💾 Сохранение настроек калькулятора...');
 
-        // Material prices
+        const saveBtn = document.querySelector('#page-calculator .btn-primary');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+        }
+
+        // Collect material prices
         const materialInputs = document.querySelectorAll('#materialPrices input');
         materialInputs.forEach(input => {
             const key = input.getAttribute('data-material');
@@ -2600,53 +2666,86 @@ class AdminPanel {
             }
         });
 
-        // Service prices
+        // Collect service prices
         CONFIG.servicePrices.modeling.price = parseFloat(document.getElementById('modelingPrice').value) || 500;
         CONFIG.servicePrices.postProcessing.price = parseFloat(document.getElementById('postProcessingPrice').value) || 300;
         CONFIG.servicePrices.painting.price = parseFloat(document.getElementById('paintingPrice').value) || 500;
         CONFIG.servicePrices.express.price = parseFloat(document.getElementById('expressPrice').value) || 1000;
 
-        // Discounts
+        // Collect discounts
         CONFIG.discounts = [
             { minQuantity: 10, percent: parseFloat(document.getElementById('discount10')?.value || 10) },
             { minQuantity: 50, percent: parseFloat(document.getElementById('discount50')?.value || 15) },
             { minQuantity: 100, percent: parseFloat(document.getElementById('discount100')?.value || 20) }
         ];
 
-        // Quality multipliers
+        // Collect quality multipliers
         CONFIG.qualityMultipliers.draft.multiplier = parseFloat(document.getElementById('qualityDraft')?.value || 0.8);
         CONFIG.qualityMultipliers.normal.multiplier = parseFloat(document.getElementById('qualityNormal')?.value || 1.0);
         CONFIG.qualityMultipliers.high.multiplier = parseFloat(document.getElementById('qualityHigh')?.value || 1.3);
         CONFIG.qualityMultipliers.ultra.multiplier = parseFloat(document.getElementById('qualityUltra')?.value || 1.6);
 
-        // Сохраняем через новый метод db.updateSettings()
-        db.updateSettings({
-            calculator: {
-                materialPrices: CONFIG.materialPrices,
-                servicePrices: CONFIG.servicePrices,
-                discounts: CONFIG.discounts,
-                qualityMultipliers: CONFIG.qualityMultipliers
-            }
+        // Transform to backend format
+        const payload = {
+            materials: Object.entries(CONFIG.materialPrices).map(([key, mat]) => ({
+                material_key: key,
+                name: mat.name,
+                price: mat.price,
+                technology: mat.technology
+            })),
+            services: Object.entries(CONFIG.servicePrices).map(([key, svc]) => ({
+                service_key: key,
+                name: svc.name,
+                price: svc.price,
+                unit: svc.unit
+            })),
+            quality_levels: Object.entries(CONFIG.qualityMultipliers).map(([key, ql]) => ({
+                quality_key: key,
+                name: ql.name,
+                price_multiplier: ql.multiplier,
+                time_multiplier: ql.time || 1.0
+            })),
+            volume_discounts: CONFIG.discounts.map(d => ({
+                min_quantity: d.minQuantity,
+                discount_percent: d.percent
+            }))
+        };
+
+        console.log('Отправка настроек калькулятора:', payload);
+
+        const result = await this.api.fetch('/api/settings/calculator', {
+            method: 'PUT',
+            body: JSON.stringify(payload)
         });
 
-        console.log('✅ Настройки калькулятора сохранены в БД');
-        console.log('Цены материалов:', CONFIG.materialPrices);
-        console.log('Цены услуг:', CONFIG.servicePrices);
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        }
 
-        // ДОБАВЛЕНО: Открываем новую вкладку с главной для проверки
-        const updateMessage = `
-        ✅ Настройки сохранены!
-        
-        Для применения цен на главной странице:
-        1. Откройте главную страницу (index.html)
-        2. Обновите страницу (F5)
-        3. Проверьте калькулятор
-    `;
+        if (!result.success) {
+            const errorMsg = result.data?.errors 
+                ? Object.values(result.data.errors).flat().join(', ') 
+                : result.error || 'Ошибка сохранения настроек';
+            this.showNotification(`Ошибка: ${errorMsg}`, 'error');
+            return;
+        }
+
+        console.log('✅ Настройки калькулятора сохранены в БД');
 
         this.showNotification('✅ Настройки калькулятора сохранены!', 'success');
 
-        // Показываем диалог с инструкцией
-        if (confirm(updateMessage + '\n\nОткрыть главную страницу сейчас?')) {
+        // Instruction to refresh main site
+        const updateMessage = `✅ Настройки сохранены!
+
+Для применения изменений на главной странице:
+1. Откройте главную страницу (index.html)
+2. Обновите страницу (F5 или Ctrl+R)
+3. Проверьте калькулятор
+
+Хотите открыть главную страницу сейчас?`;
+
+        if (confirm(updateMessage)) {
             window.open('index.html', '_blank');
         }
     }
@@ -2855,20 +2954,59 @@ class AdminPanel {
     }
 
     // ========================================
-    // FORMS MANAGEMENT (ИСПРАВЛЕНО #12)
+    // FORMS MANAGEMENT (Backend API Integration)
     // ========================================
 
-    loadFormSettings() {
+    async loadFormSettings() {
         console.log('📝 Загрузка настроек форм...');
 
-        const settings = db.getOrCreateSettings();
+        // Show loading state
+        const container = document.getElementById('contactFormFields');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--admin-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+        }
 
-        if (settings.formFields) {
-            CONFIG.formFields = settings.formFields;
+        const result = await this.api.fetch('/api/settings');
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки настроек форм: ${result.error}`, 'error');
+            return;
+        }
+
+        const settings = result.data.data;
+        this.currentSettings = settings;
+
+        if (settings.forms && settings.forms.fields) {
+            CONFIG.formFields = this.transformFormFieldsFromAPI(settings.forms.fields);
         }
 
         this.renderFormFields('contact');
-        this.loadTelegramSettings();
+        await this.loadTelegramSettings();
+    }
+
+    transformFormFieldsFromAPI(fields) {
+        const grouped = { contact: [], order: [] };
+        fields.forEach(field => {
+            const formType = field.form_type || 'contact';
+            if (!grouped[formType]) grouped[formType] = [];
+            
+            grouped[formType].push({
+                name: field.field_name,
+                label: field.label,
+                type: field.field_type,
+                required: field.required,
+                enabled: field.enabled,
+                placeholder: field.placeholder,
+                options: field.options || [],
+                order: field.display_order || 0
+            });
+        });
+        
+        // Sort by display order
+        grouped.contact.sort((a, b) => (a.order || 0) - (b.order || 0));
+        grouped.order.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        return grouped;
     }
 
     renderFormFields(formType) {
@@ -2972,9 +3110,8 @@ class AdminPanel {
 
         const field = CONFIG.formFields[formType][index];
 
-        // ИСПРАВЛЕНО: Защита от некорректных изменений
+        // Protection for system fields
         if (property === 'required') {
-            // Обязательные поля name, email, phone, message нельзя сделать необязательными
             if (['name', 'email', 'phone', 'message'].includes(field.name) && value === false) {
                 this.showNotification('⚠️ Это системное поле должно оставаться обязательным', 'warning');
                 this.renderFormFields(formType);
@@ -2986,33 +3123,20 @@ class AdminPanel {
 
         console.log(`✏️ Обновлено поле ${formType}[${index}].${property} = ${value}`);
 
-        // Автосохранение
-        db.updateSettings({
-            formFields: CONFIG.formFields
-        });
-
-        console.log('✅ Изменения сохранены в БД');
-
-        // Перерисовываем админку
+        // Note: Changes are saved when user clicks "Save" button
+        // No auto-save to prevent excessive API calls
         this.renderFormFields(formType);
     }
     updateFormFieldOptions(formType, index, optionsString) {
         if (!CONFIG.formFields[formType][index]) return;
 
-        // Преобразуем строку в массив
         const options = optionsString.split(',').map(opt => opt.trim()).filter(opt => opt);
-
         CONFIG.formFields[formType][index].options = options;
 
         console.log(`✏️ Обновлены опции для ${formType}[${index}]:`, options);
-
-        // Автосохранение
-        db.updateSettings({
-            formFields: CONFIG.formFields
-        });
-
         this.renderFormFields(formType);
     }
+
     moveFormField(formType, index, direction) {
         const fields = CONFIG.formFields[formType];
 
@@ -3024,36 +3148,68 @@ class AdminPanel {
             return;
         }
 
-        // Обновляем order
+        // Update order
         fields.forEach((field, i) => {
             field.order = i + 1;
         });
 
-        db.updateSettings({
-            formFields: CONFIG.formFields
-        });
-
         this.renderFormFields(formType);
     }
-    saveFormSettings() {
+
+    async saveFormSettings() {
         console.log('💾 Сохранение настроек форм...');
 
-        const telegramToggle = document.getElementById('telegramNotifications');
-        if (telegramToggle) {
-            CONFIG.features.telegramNotifications = telegramToggle.checked;
+        const saveBtn = document.querySelector('#page-forms .btn-primary');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
         }
 
-        db.updateSettings({
-            formFields: CONFIG.formFields,
-            telegramNotifications: telegramToggle ? telegramToggle.checked : true
+        // Transform form fields to backend format
+        const fields = [];
+        Object.entries(CONFIG.formFields).forEach(([formType, formFields]) => {
+            formFields.forEach((field, index) => {
+                fields.push({
+                    form_type: formType,
+                    field_name: field.name,
+                    label: field.label,
+                    field_type: field.type,
+                    required: field.required,
+                    enabled: field.enabled,
+                    placeholder: field.placeholder || '',
+                    options: field.options || [],
+                    display_order: field.order || index + 1
+                });
+            });
         });
 
-        console.log('✅ Настройки формы сохранены в БД');
+        const payload = { fields };
 
-        // НОВОЕ: Уведомление о необходимости обновить главную
-        this.showNotification('✅ Настройки сохранены! Обновите главную страницу для применения.', 'success');
+        console.log('Отправка настроек форм:', payload);
 
-        // Предложение открыть главную
+        const result = await this.api.fetch('/api/settings/forms', {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить и применить';
+        }
+
+        if (!result.success) {
+            const errorMsg = result.data?.errors 
+                ? Object.values(result.data.errors).flat().join(', ') 
+                : result.error || 'Ошибка сохранения настроек';
+            this.showNotification(`Ошибка: ${errorMsg}`, 'error');
+            return;
+        }
+
+        console.log('✅ Настройки форм сохранены в БД');
+
+        this.showNotification('✅ Настройки форм сохранены!', 'success');
+
+        // Instruction to refresh main site
         if (confirm('Настройки сохранены!\n\nОткрыть главную страницу для проверки изменений?')) {
             window.open('index.html', '_blank');
         }
@@ -3071,18 +3227,14 @@ class AdminPanel {
 
         CONFIG.formFields[formType].push(newField);
 
-        db.updateSettings({
-            formFields: CONFIG.formFields
-        });
-
-        this.showNotification('✅ Поле добавлено. Отредактируйте его настройки.', 'success');
+        this.showNotification('✅ Поле добавлено. Не забудьте сохранить изменения.', 'success');
         this.renderFormFields(formType);
     }
 
     deleteFormField(formType, index) {
         const field = CONFIG.formFields[formType][index];
 
-        // Защита от удаления обязательных системных полей
+        // Protection for system fields
         if (['name', 'email', 'phone', 'message'].includes(field.name)) {
             if (!confirm(`⚠️ ВНИМАНИЕ!\n\nВы удаляете системное поле "${field.label}".\nЭто может нарушить работу формы.\n\nПродолжить?`)) {
                 return;
@@ -3095,96 +3247,108 @@ class AdminPanel {
 
         CONFIG.formFields[formType].splice(index, 1);
 
-        // Обновляем order
+        // Update order
         CONFIG.formFields[formType].forEach((f, i) => {
             f.order = i + 1;
         });
 
-        db.updateSettings({
-            formFields: CONFIG.formFields
-        });
-
-        this.showNotification('✅ Поле удалено', 'success');
+        this.showNotification('✅ Поле удалено. Не забудьте сохранить изменения.', 'success');
         this.renderFormFields(formType);
     }
 
-    addFormField(formType) {
-        const newField = {
-            name: 'custom_field_' + Date.now(),
-            label: 'Новое поле',
-            type: 'text',
-            required: false,
-            enabled: true,
-            placeholder: 'Введите значение...'
-        };
+    // ========================================
+    // TELEGRAM SETTINGS (Backend API Integration)
+    // ========================================
 
-        CONFIG.formFields[formType].push(newField);
-
-        db.updateSettings({
-            formFields: CONFIG.formFields
-        });
-
-        this.showNotification('Поле добавлено', 'success');
-        this.renderFormFields(formType);
-    }
-    saveFormSettings() {
-        console.log('💾 Сохранение настроек форм...');
-
-        const telegramToggle = document.getElementById('telegramNotifications');
-        if (telegramToggle) {
-            CONFIG.features.telegramNotifications = telegramToggle.checked;
+    async loadTelegramSettings() {
+        if (!this.currentSettings) {
+            const result = await this.api.fetch('/api/settings');
+            if (result.success) {
+                this.currentSettings = result.data.data;
+            }
         }
 
-        db.updateSettings({
-            formFields: CONFIG.formFields,
-            telegramNotifications: telegramToggle ? telegramToggle.checked : true
-        });
-
-        console.log('✅ Настройки формы сохранены в БД');
-
-        this.showNotification('✅ Настройки формы сохранены', 'success');
-    }
-
-    // ========================================
-    // TELEGRAM SETTINGS
-    // ========================================
-
-    loadTelegramSettings() {
-        const settings = db.getOrCreateSettings();
+        const settings = this.currentSettings;
         const chatIdInput = document.getElementById('telegramChatId');
         const notifToggle = document.getElementById('telegramNotifications');
 
-        if (chatIdInput) {
-            chatIdInput.value = settings?.telegram?.chatId || CONFIG.telegram.chatId || '';
+        if (chatIdInput && settings?.integrations?.telegram) {
+            chatIdInput.value = settings.integrations.telegram.chat_id || '';
         }
 
-        if (notifToggle) {
-            notifToggle.checked = settings?.telegramNotifications !== undefined
-                ? settings.telegramNotifications
-                : CONFIG.features.telegramNotifications;
+        if (notifToggle && settings?.site) {
+            notifToggle.checked = settings.site.notifications_enabled !== undefined
+                ? settings.site.notifications_enabled
+                : true;
+        }
+
+        // Load and display Telegram status
+        await this.loadTelegramStatus();
+    }
+
+    async loadTelegramStatus() {
+        const result = await this.api.fetch('/api/telegram/status');
+        
+        if (result.success && result.data.data) {
+            const status = result.data.data;
+            const statusContainer = document.getElementById('telegramStatus');
+            
+            if (statusContainer) {
+                let statusHTML = '<div style="padding: 15px; background: var(--admin-bg); border-radius: 10px; margin-bottom: 15px;">';
+                statusHTML += '<strong style="display: block; margin-bottom: 10px;">Статус интеграции:</strong>';
+                
+                if (status.connected) {
+                    statusHTML += '<div style="color: var(--admin-success);"><i class="fas fa-check-circle"></i> Подключено</div>';
+                    if (status.bot) {
+                        statusHTML += `<small style="color: var(--admin-text-secondary);">Бот: ${status.bot.username || status.bot.first_name}</small>`;
+                    }
+                } else if (status.configured) {
+                    statusHTML += '<div style="color: var(--admin-warning);"><i class="fas fa-exclamation-triangle"></i> Настроено, но не подключено</div>';
+                    if (status.error) {
+                        statusHTML += `<small style="color: var(--admin-danger);">${status.error}</small>`;
+                    }
+                } else {
+                    statusHTML += '<div style="color: var(--admin-text-secondary);"><i class="fas fa-info-circle"></i> Не настроено</div>';
+                }
+                
+                statusHTML += '</div>';
+                statusContainer.innerHTML = statusHTML;
+            }
         }
     }
 
     async getTelegramChatId() {
         this.showNotification('🔄 Получение Chat ID из Telegram...', 'info');
 
-        try {
-            const result = await telegramBot.getUpdates();
+        const result = await this.api.fetch('/api/telegram/chat-id');
 
-            if (result.success && result.chatId) {
-                const chatIdInput = document.getElementById('telegramChatId');
-                if (chatIdInput) {
-                    chatIdInput.value = result.chatId;
-                }
+        if (!result.success) {
+            this.showNotification(`❌ Ошибка: ${result.error}`, 'error');
+            return;
+        }
 
-                CONFIG.telegram.chatId = result.chatId;
-
-                this.showNotification(`✅ Chat ID получен: ${result.chatId}`, 'success');
-            } else {
-                this.showNotification('⚠️ Не удалось получить Chat ID. Отправьте сообщение боту и попробуйте снова.', 'warning');
+        const data = result.data.data;
+        
+        if (data.chat_ids && data.chat_ids.length > 0) {
+            const chatId = data.chat_ids[0].id;
+            const chatIdInput = document.getElementById('telegramChatId');
+            
+            if (chatIdInput) {
+                chatIdInput.value = chatId;
             }
-        } catch (error) {
-            this.showNotification('❌ Ошибка: ' + error.message, 'error');
+
+            let message = `✅ Найдено чатов: ${data.count}\n\n`;
+            data.chat_ids.forEach((chat, index) => {
+                message += `${index + 1}. ${chat.type}: ${chat.id}`;
+                if (chat.title) message += ` (${chat.title})`;
+                if (chat.username) message += ` (@${chat.username})`;
+                message += '\n';
+            });
+            message += '\nПервый Chat ID добавлен в поле. Сохраните настройки.';
+
+            this.showNotification(message, 'success');
+        } else {
+            this.showNotification(data.message || '⚠️ Chat ID не найдены. Отправьте сообщение боту и попробуйте снова.', 'warning');
         }
     }
 
@@ -3192,28 +3356,26 @@ class AdminPanel {
         const chatId = document.getElementById('telegramChatId')?.value;
 
         if (!chatId) {
-            this.showNotification('⚠️ Сначала укажите или получите Chat ID', 'warning');
+            this.showNotification('⚠️ Сначала сохраните Chat ID', 'warning');
             return;
         }
 
-        CONFIG.telegram.chatId = chatId;
-
         this.showNotification('📤 Отправка тестового сообщения...', 'info');
 
-        try {
-            const result = await telegramBot.sendTestMessage();
+        const result = await this.api.fetch('/api/telegram/test', {
+            method: 'POST'
+        });
 
-            if (result.success) {
-                this.showNotification('✅ Тестовое сообщение успешно отправлено! Проверьте Telegram.', 'success');
-            } else {
-                this.showNotification('❌ Ошибка отправки: ' + result.error, 'error');
-            }
-        } catch (error) {
-            this.showNotification('❌ Ошибка: ' + error.message, 'error');
+        if (!result.success) {
+            this.showNotification(`❌ Ошибка отправки: ${result.error}`, 'error');
+            return;
         }
+
+        this.showNotification('✅ Тестовое сообщение успешно отправлено! Проверьте Telegram.', 'success');
+        await this.loadTelegramStatus();
     }
 
-    saveTelegramSettings() {
+    async saveTelegramSettings() {
         const chatId = document.getElementById('telegramChatId')?.value;
         const notifEnabled = document.getElementById('telegramNotifications')?.checked;
 
@@ -3224,64 +3386,122 @@ class AdminPanel {
 
         console.log('💾 Сохранение Telegram настроек...', { chatId, notifEnabled });
 
-        CONFIG.telegram.chatId = chatId;
-        CONFIG.features.telegramNotifications = notifEnabled;
+        const saveBtn = event?.target;
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+        }
 
-        db.updateSettings({
-            telegram: {
-                chatId: chatId
-            },
-            telegramNotifications: notifEnabled
+        const payload = {
+            chat_id: chatId
+        };
+
+        const result = await this.api.fetch('/api/settings/telegram', {
+            method: 'PUT',
+            body: JSON.stringify(payload)
         });
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+        }
+
+        if (!result.success) {
+            const errorMsg = result.data?.errors 
+                ? Object.values(result.data.errors).flat().join(', ') 
+                : result.error || 'Ошибка сохранения настроек';
+            this.showNotification(`Ошибка: ${errorMsg}`, 'error');
+            return;
+        }
+
+        // Also update notification settings via general settings if needed
+        if (notifEnabled !== undefined) {
+            await this.api.fetch('/api/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ notifications_enabled: notifEnabled })
+            });
+        }
 
         console.log('✅ Telegram настройки сохранены');
 
         this.showNotification('✅ Настройки Telegram сохранены', 'success');
+        await this.loadTelegramStatus();
     }
     // ========================================
-    // GENERAL SETTINGS (ИСПРАВЛЕНО #15)
+    // GENERAL SETTINGS (Backend API Integration)
     // ========================================
 
-    loadSettings() {
+    async loadSettings() {
         console.log('⚙️ Загрузка общих настроек...');
 
-        const settings = db.getOrCreateSettings();
+        const result = await this.api.fetch('/api/settings');
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки настроек: ${result.error}`, 'error');
+            return;
+        }
+
+        const settings = result.data.data;
+        this.currentSettings = settings;
 
         console.log('Settings:', settings);
 
-        if (document.getElementById('settingsSiteName')) {
-            document.getElementById('settingsSiteName').value = settings.siteName || '3D Print Pro';
+        // Site settings
+        if (document.getElementById('settingsSiteName') && settings.site) {
+            document.getElementById('settingsSiteName').value = settings.site.site_name || '3D Print Pro';
         }
-        if (document.getElementById('settingsAdminEmail')) {
-            document.getElementById('settingsAdminEmail').value = settings.contactEmail || '';
+        if (document.getElementById('settingsAdminEmail') && settings.site) {
+            document.getElementById('settingsAdminEmail').value = settings.site.contact_email || '';
         }
-        if (document.getElementById('settingsTimezone')) {
-            document.getElementById('settingsTimezone').value = settings.timezone || 'Europe/Moscow';
+        if (document.getElementById('settingsTimezone') && settings.site) {
+            document.getElementById('settingsTimezone').value = settings.site.timezone || 'Europe/Moscow';
         }
 
-        // Color picker
-        if (document.getElementById('colorPrimary')) {
-            document.getElementById('colorPrimary').value = settings.colorPrimary || '#6366f1';
+        // Color settings
+        if (document.getElementById('colorPrimary') && settings.site) {
+            document.getElementById('colorPrimary').value = settings.site.color_primary || '#6366f1';
         }
-        if (document.getElementById('colorSecondary')) {
-            document.getElementById('colorSecondary').value = settings.colorSecondary || '#ec4899';
+        if (document.getElementById('colorSecondary') && settings.site) {
+            document.getElementById('colorSecondary').value = settings.site.color_secondary || '#ec4899';
         }
     }
 
-    saveGeneralSettings() {
+    async saveGeneralSettings() {
         console.log('💾 Сохранение общих настроек...');
 
-        const settingsData = {
-            siteName: document.getElementById('settingsSiteName')?.value || '3D Print Pro',
-            contactEmail: document.getElementById('settingsAdminEmail')?.value || '',
+        const saveBtn = document.querySelector('#page-settings .btn-primary');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+        }
+
+        const payload = {
+            site_name: document.getElementById('settingsSiteName')?.value || '3D Print Pro',
+            contact_email: document.getElementById('settingsAdminEmail')?.value || '',
             timezone: document.getElementById('settingsTimezone')?.value || 'Europe/Moscow',
-            colorPrimary: document.getElementById('colorPrimary')?.value || '#6366f1',
-            colorSecondary: document.getElementById('colorSecondary')?.value || '#ec4899'
+            color_primary: document.getElementById('colorPrimary')?.value || '#6366f1',
+            color_secondary: document.getElementById('colorSecondary')?.value || '#ec4899'
         };
 
-        console.log('Settings data:', settingsData);
+        console.log('Settings data:', payload);
 
-        db.updateSettings(settingsData);
+        const result = await this.api.fetch('/api/settings', {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        }
+
+        if (!result.success) {
+            const errorMsg = result.data?.errors 
+                ? Object.values(result.data.errors).flat().join(', ') 
+                : result.error || 'Ошибка сохранения настроек';
+            this.showNotification(`Ошибка: ${errorMsg}`, 'error');
+            return;
+        }
 
         console.log('✅ Настройки сохранены в БД');
 
