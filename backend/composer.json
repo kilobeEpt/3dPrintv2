@@ -18,12 +18,19 @@
             "App\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
     "config": {
         "optimize-autoloader": true,
         "sort-packages": true
     },
     "scripts": {
         "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html coverage --coverage-text",
+        "test:filter": "phpunit --filter",
         "start": "php -S localhost:8080 -t public"
     }
 }
