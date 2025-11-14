@@ -8,6 +8,19 @@ class AdminPanel {
         this.currentUser = null;
         this.notifications = [];
         this.activeDropdown = null;
+        
+        // Initialize API client for backend communication
+        this.api = new AdminAPIClient();
+        
+        // Pagination state for orders
+        this.ordersPage = 1;
+        this.ordersPerPage = 20;
+        this.ordersTotalPages = 1;
+        this.ordersTotal = 0;
+        
+        // Cached orders data for dashboard
+        this.cachedOrders = [];
+        this.lastOrdersFetch = null;
     }
 
     init() {
@@ -96,14 +109,14 @@ class AdminPanel {
     // INITIALIZATION
     // ========================================
 
-    initAdminPanel() {
+    async initAdminPanel() {
         this.initNavigation();
         this.initSidebar();
         this.initTabs();
         this.initDropdowns();
-        this.loadDashboard();
+        await this.loadDashboard();
         this.loadNotifications();
-        this.updateOrdersBadge();
+        await this.updateOrdersBadge();
     }
 
     initEventListeners() {
@@ -154,10 +167,10 @@ class AdminPanel {
         }
     }
 
-    loadPageData(pageId) {
+    async loadPageData(pageId) {
         switch (pageId) {
             case 'dashboard':
-                this.loadDashboard();
+                await this.loadDashboard();
                 break;
             case 'orders':
                 this.loadOrders();
@@ -273,16 +286,28 @@ class AdminPanel {
     // DASHBOARD (с динамическими процентами #8)
     // ========================================
 
-    loadDashboard() {
-        this.loadDashboardStats();
-        this.loadRecentOrders();
-        this.loadActivityFeed();
-        this.loadPopularServices();
-        this.loadChart();
-    }
+    async loadDashboard() {
+        await this.loadDashboardStats();
+        await this.loadRecentOrders();
+        await this.loadActivityFeed();
+        await this.loadPopularServices();
+        await this.loadChart();
+    }    async loadDashboardStats() {
+        // Fetch orders for statistics (using a reasonable page size)
+        const params = new URLSearchParams({
+            page: 1,
+            per_page: 100  // Get first 100 orders for stats
+        });
 
-    loadDashboardStats() {
-        const orders = db.getData('orders') || [];
+        const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+        
+        if (!result.success) {
+            console.warn('Failed to load dashboard stats:', result.error);
+            return;
+        }
+
+        const orders = result.data.data || [];
+        const total = result.data.pagination?.total || orders.length;
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
@@ -290,11 +315,11 @@ class AdminPanel {
         const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
         const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-        const totalOrders = orders.length;
+        const totalOrders = total;
         document.getElementById('dashTotalOrders').textContent = totalOrders;
 
         const prevMonthOrders = orders.filter(o => {
-            const orderDate = new Date(o.createdAt);
+            const orderDate = new Date(o.created_at);
             return orderDate.getMonth() === prevMonth && orderDate.getFullYear() === prevMonthYear;
         }).length;
 
@@ -302,7 +327,7 @@ class AdminPanel {
 
         const monthRevenue = orders
             .filter(o => {
-                const orderDate = new Date(o.createdAt);
+                const orderDate = new Date(o.created_at);
                 return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
             })
             .reduce((sum, o) => sum + (o.amount || 0), 0);
@@ -311,23 +336,23 @@ class AdminPanel {
 
         const prevMonthRevenue = orders
             .filter(o => {
-                const orderDate = new Date(o.createdAt);
+                const orderDate = new Date(o.created_at);
                 return orderDate.getMonth() === prevMonth && orderDate.getFullYear() === prevMonthYear;
             })
             .reduce((sum, o) => sum + (o.amount || 0), 0);
 
         const revenueGrowth = this.calculateGrowth(monthRevenue, prevMonthRevenue);
 
-        const uniqueClients = new Set(orders.map(o => o.clientEmail || o.email)).size;
+        const uniqueClients = new Set(orders.map(o => o.client_email)).size;
         document.getElementById('dashTotalClients').textContent = uniqueClients;
 
         const prevMonthClients = new Set(
             orders
                 .filter(o => {
-                    const orderDate = new Date(o.createdAt);
+                    const orderDate = new Date(o.created_at);
                     return orderDate.getMonth() === prevMonth && orderDate.getFullYear() === prevMonthYear;
                 })
-                .map(o => o.clientEmail || o.email)
+                .map(o => o.client_email)
         ).size;
 
         const clientsGrowth = this.calculateGrowth(uniqueClients, prevMonthClients);
@@ -358,7 +383,12 @@ class AdminPanel {
                 }
             }
         }
+
+        // Cache orders for other dashboard widgets
+        this.cachedOrders = orders;
+        this.lastOrdersFetch = Date.now();
     }
+
 
     calculateGrowth(current, previous) {
         if (previous === 0) return current > 0 ? 100 : 0;
@@ -375,32 +405,52 @@ class AdminPanel {
         changeSpan.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(growth)}%`;
         changeSpan.className = 'stat-change';
         changeSpan.classList.add(isPositive ? 'positive' : 'negative');
-    }
+    }    async loadRecentOrders() {
+        let orders = this.cachedOrders;
+        
+        // Fetch if not cached or stale
+        if (!orders.length || !this.lastOrdersFetch || (Date.now() - this.lastOrdersFetch > 60000)) {
+            const params = new URLSearchParams({
+                page: 1,
+                per_page: 10
+            });
 
-    loadRecentOrders() {
-        const orders = (db.getData('orders') || [])
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 5);
+            const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+            
+            if (!result.success) {
+                console.warn('Failed to load recent orders:', result.error);
+                const container = document.getElementById('recentOrders');
+                if (container) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--admin-danger); padding: 20px;">Ошибка загрузки</p>';
+                }
+                return;
+            }
+
+            orders = result.data.data || [];
+            this.cachedOrders = orders;
+        }
+
+        const recentOrders = orders.slice(0, 5);
 
         const container = document.getElementById('recentOrders');
         if (!container) return;
 
-        if (orders.length === 0) {
+        if (recentOrders.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: var(--admin-text-secondary); padding: 20px;">Заказов пока нет</p>';
             return;
         }
 
-        container.innerHTML = orders.map(order => `
-            <div class="order-item" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--admin-border); cursor: pointer; transition: background 0.2s;" onclick="admin.viewOrder('${order.id}')">
+        container.innerHTML = recentOrders.map(order => `
+            <div class="order-item" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--admin-border); cursor: pointer; transition: background 0.2s;" onclick="admin.viewOrder(${order.id})">
                 <div style="flex: 1;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
-                        <strong>#${order.orderNumber || order.id.substr(0, 8)}</strong>
+                        <strong>#${order.order_number || order.id}</strong>
                         <span class="type-badge type-${order.type || 'order'}">
                             ${order.type === 'contact' ? 'Обращение' : 'Заказ'}
                         </span>
                     </div>
                     <div style="color: var(--admin-text-secondary); font-size: 14px;">
-                        ${order.clientName || order.name} • ${order.service || order.subject || '-'}
+                        ${order.client_name} • ${order.service || order.subject || '-'}
                     </div>
                 </div>
                 <div style="text-align: right;">
@@ -411,19 +461,32 @@ class AdminPanel {
                 </div>
             </div>
         `).join('');
-    }
+    }    async loadActivityFeed() {
+        let orders = this.cachedOrders;
+        
+        if (!orders.length) {
+            const params = new URLSearchParams({
+                page: 1,
+                per_page: 10
+            });
 
-    loadActivityFeed() {
-        const orders = (db.getData('orders') || []).slice(-4).reverse();
+            const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+            
+            if (result.success) {
+                orders = result.data.data || [];
+            }
+        }
+
+        const recentOrders = orders.slice(0, 4);
         const container = document.getElementById('activityFeed');
         if (!container) return;
 
-        if (orders.length === 0) {
+        if (recentOrders.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: var(--admin-text-secondary); padding: 20px;">Нет активности</p>';
             return;
         }
 
-        container.innerHTML = orders.map(order => {
+        container.innerHTML = recentOrders.map(order => {
             const iconClass = order.status === 'completed' ? 'success' :
                 order.status === 'new' ? 'info' : 'warning';
             const icon = order.status === 'completed' ? 'fa-check' :
@@ -435,16 +498,28 @@ class AdminPanel {
                         <i class="fas ${icon}"></i>
                     </div>
                     <div class="activity-content">
-                        <p>${order.type === 'contact' ? 'Новое обращение' : 'Новый заказ'} от <strong>${order.clientName || order.name}</strong></p>
-                        <span>${this.getRelativeTime(order.createdAt)}</span>
+                        <p>${order.type === 'contact' ? 'Новое обращение' : 'Новый заказ'} от <strong>${order.client_name}</strong></p>
+                        <span>${this.getRelativeTime(order.created_at)}</span>
                     </div>
                 </div>
             `;
         }).join('');
-    }
+    }    async loadPopularServices() {
+        let orders = this.cachedOrders;
+        
+        if (!orders.length) {
+            const params = new URLSearchParams({
+                page: 1,
+                per_page: 100
+            });
 
-    loadPopularServices() {
-        const orders = db.getData('orders') || [];
+            const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+            
+            if (result.success) {
+                orders = result.data.data || [];
+            }
+        }
+
         const services = {};
 
         orders.forEach(order => {
@@ -479,18 +554,30 @@ class AdminPanel {
                 </div>
             `;
         }).join('');
-    }
-
-    loadChart() {
+    }    async loadChart() {
         const ctx = document.getElementById('ordersChart');
         if (!ctx) return;
 
-        const orders = db.getData('orders') || [];
+        let orders = this.cachedOrders;
+        
+        if (!orders.length) {
+            const params = new URLSearchParams({
+                page: 1,
+                per_page: 100
+            });
+
+            const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+            
+            if (result.success) {
+                orders = result.data.data || [];
+            }
+        }
+
         const last7Days = this.getLast7Days();
 
         const data = last7Days.map(date => {
             return orders.filter(o => {
-                const orderDate = new Date(o.createdAt).toDateString();
+                const orderDate = new Date(o.created_at).toDateString();
                 return orderDate === date.toDateString();
             }).length;
         });
@@ -545,68 +632,78 @@ class AdminPanel {
     // ORDERS MANAGEMENT
     // ========================================
 
-    loadOrders() {
-        this.renderOrdersTable();
+    async loadOrders() {
+        await await this.renderOrdersTable();
         this.initOrdersFilters();
-        this.updateOrdersBadge();
-    }
+        await await this.updateOrdersBadge();
+    }    async renderOrdersTable() {
+        const tbody = document.getElementById('ordersTable');
+        if (!tbody) return;
 
-    renderOrdersTable(orders = null) {
-        if (!orders) {
-            orders = db.getData('orders') || [];
-        }
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Загрузка заказов...</td></tr>';
 
         const statusFilter = document.getElementById('orderStatusFilter')?.value;
         const typeFilter = document.getElementById('orderTypeFilter')?.value;
         const searchFilter = document.getElementById('orderSearchFilter')?.value;
 
+        const params = new URLSearchParams({
+            page: this.ordersPage,
+            per_page: this.ordersPerPage
+        });
+
         if (statusFilter && statusFilter !== 'all') {
-            orders = orders.filter(o => o.status === statusFilter);
+            params.append('status', statusFilter);
         }
 
         if (typeFilter && typeFilter !== 'all') {
-            orders = orders.filter(o => (o.type || 'order') === typeFilter);
+            params.append('type', typeFilter);
         }
 
         if (searchFilter) {
-            const search = searchFilter.toLowerCase();
-            orders = orders.filter(o =>
-                (o.clientName || o.name || '').toLowerCase().includes(search) ||
-                (o.clientEmail || o.email || '').toLowerCase().includes(search) ||
-                (o.orderNumber || '').toLowerCase().includes(search)
-            );
+            params.append('search', searchFilter);
         }
 
-        orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const result = await this.api.fetch(`/api/orders?${params.toString()}`);
 
-        const tbody = document.getElementById('ordersTable');
-        if (!tbody) return;
-
-        if (orders.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--admin-text-secondary);">Заказов не найдено</td></tr>';
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--admin-danger);">Ошибка загрузки: ${result.error}</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = orders.map((order, index) => `
+        const orders = result.data.data || [];
+        const pagination = result.data.pagination || {};
+        
+        this.ordersTotal = pagination.total || 0;
+        this.ordersTotalPages = pagination.total_pages || 1;
+        this.cachedOrders = orders;
+        this.lastOrdersFetch = Date.now();
+
+        if (orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--admin-text-secondary);">Заказов не найдено</td></tr>';
+            this.renderPagination(0, 1, 1);
+            return;
+        }
+
+        tbody.innerHTML = orders.map((order) => `
         <tr>
             <td><input type="checkbox" class="order-checkbox" data-id="${order.id}"></td>
-            <td><strong>#${order.orderNumber || (index + 1)}</strong></td>
+            <td><strong>#${order.order_number || '-'}</strong></td>
             <td>
                 <span class="type-badge type-${order.type || 'order'}">
                     ${order.type === 'contact' ? 'Обращение' : 'Заказ'}
                 </span>
             </td>
-            <td>${order.clientName || order.name || '-'}</td>
+            <td>${order.client_name || '-'}</td>
             <td style="font-size: 13px;">
-                ${order.clientEmail || order.email || '-'}<br>
-                ${order.clientPhone || order.phone || '-'}
+                ${order.client_email || '-'}<br>
+                ${order.client_phone || '-'}
                 ${order.telegram ? `<br><i class="fab fa-telegram" style="color: var(--admin-info);"></i> ${order.telegram}` : ''}
             </td>
             <td>${order.service || order.subject || '-'}</td>
-            <td>${this.formatDate(order.createdAt)}</td>
+            <td>${this.formatDate(order.created_at)}</td>
             <td><strong>₽${(order.amount || 0).toLocaleString('ru-RU')}</strong></td>
             <td>
-                <select class="status-select status-${order.status}" onchange="admin.quickChangeStatus('${order.id}', this.value)" onclick="event.stopPropagation()">
+                <select class="status-select status-${order.status}" onchange="admin.quickChangeStatus(${order.id}, this.value)" onclick="event.stopPropagation()">
                     <option value="new" ${order.status === 'new' ? 'selected' : ''}>Новый</option>
                     <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>В работе</option>
                     <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Выполнен</option>
@@ -615,44 +712,156 @@ class AdminPanel {
             </td>
             <td>
                 <div class="action-btns">
-                    <button class="action-btn view" onclick="admin.viewOrder('${order.id}')" title="Просмотр">
+                    <button class="action-btn view" onclick="admin.viewOrder(${order.id})" title="Просмотр">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="action-btn edit" onclick="admin.editOrder('${order.id}')" title="Редактировать">
+                    <button class="action-btn edit" onclick="admin.editOrder(${order.id})" title="Редактировать">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="action-btn delete" onclick="admin.deleteOrder('${order.id}')" title="Удалить">
+                    <button class="action-btn delete" onclick="admin.deleteOrder(${order.id})" title="Удалить">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </td>
         </tr>
     `).join('');
+
+        this.renderPagination(pagination.total, pagination.page, pagination.total_pages);
     }
-    quickChangeStatus(id, newStatus) {
-        const order = db.getItem('orders', id);
-        if (!order) return;
 
-        const oldStatus = order.status;
+    renderPagination(total, currentPage, totalPages) {
+        const container = document.querySelector('.orders-pagination') || this.createPaginationContainer();
+        if (!container) return;
 
-        db.updateItem('orders', id, { status: newStatus });
+        if (totalPages <= 1) {
+            container.style.display = 'none';
+            return;
+        }
 
-        this.showNotification(`✅ Статус изменён: ${this.getStatusName(oldStatus)} → ${this.getStatusName(newStatus)}`, 'success');
+        container.style.display = 'flex';
+        
+        let paginationHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(1)" ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-angle-double-left"></i>
+                </button>
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-angle-left"></i>
+                </button>
+                <span style="padding: 0 15px; color: var(--admin-text-secondary);">
+                    Страница ${currentPage} из ${totalPages} (всего: ${total})
+                </span>
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-angle-right"></i>
+                </button>
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-angle-double-right"></i>
+                </button>
+            </div>
+        `;
 
-        this.updateOrdersBadge();
-        this.loadDashboard();
+        container.innerHTML = paginationHTML;
     }
-    editOrder(id) {
-        const order = db.getItem('orders', id);
-        if (!order) return;
 
-        const isCalculatorOrder = order.type === 'order' && order.calculatorData;
+    createPaginationContainer() {
+        const table = document.querySelector('#ordersTable')?.closest('.card');
+        if (!table) return null;
+
+        const existing = document.querySelector('.orders-pagination');
+        if (existing) return existing;
+
+        const container = document.createElement('div');
+        container.className = 'orders-pagination';
+        container.style.cssText = 'display: flex; justify-content: center; align-items: center; padding: 20px; border-top: 1px solid var(--admin-border);';
+        
+        table.appendChild(container);
+        return container;
+    }
+
+    async goToOrdersPage(page) {
+        if (page < 1 || page > this.ordersTotalPages) return;
+        this.ordersPage = page;
+        await await this.renderOrdersTable();
+    }
+
+    renderPagination(total, currentPage, totalPages) {
+        const container = document.querySelector('.orders-pagination') || this.createPaginationContainer();
+        if (!container) return;
+
+        if (totalPages <= 1) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'flex';
+        
+        let paginationHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(1)" ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-angle-double-left"></i>
+                </button>
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-angle-left"></i>
+                </button>
+                <span style="padding: 0 15px; color: var(--admin-text-secondary);">
+                    Страница ${currentPage} из ${totalPages} (всего: ${total})
+                </span>
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-angle-right"></i>
+                </button>
+                <button class="btn btn-sm" onclick="admin.goToOrdersPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-angle-double-right"></i>
+                </button>
+            </div>
+        `;
+
+        container.innerHTML = paginationHTML;
+    }
+
+    createPaginationContainer() {
+        const table = document.querySelector('#ordersTable')?.closest('.card');
+        if (!table) return null;
+
+        const existing = document.querySelector('.orders-pagination');
+        if (existing) return existing;
+
+        const container = document.createElement('div');
+        container.className = 'orders-pagination';
+        container.style.cssText = 'display: flex; justify-content: center; align-items: center; padding: 20px; border-top: 1px solid var(--admin-border);';
+        
+        table.appendChild(container);
+        return container;
+    }    async quickChangeStatus(id, newStatus) {
+        const result = await this.api.fetch(`/api/orders/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!result.success) {
+            this.showNotification(`Ошибка изменения статуса: ${result.error}`, 'error');
+            return;
+        }
+
+        this.showNotification(`✅ Статус изменён на "${this.getStatusName(newStatus)}"`, 'success');
+        await await this.renderOrdersTable();
+        await await this.updateOrdersBadge();
+        await await this.loadDashboard();
+    }    async editOrder(id) {
+        const result = await this.api.fetch(`/api/orders/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки заказа: ${result.error}`, 'error');
+            return;
+        }
+
+        const order = result.data.data;
+        const isCalculatorOrder = order.type === 'order' && order.calculator_data;
 
         let formHTML = `
         <form id="editOrderForm" style="max-width: 600px;">
             <div class="form-group">
                 <label>Номер заказа</label>
-                <input type="text" class="form-control" value="${order.orderNumber || ''}" readonly style="background: var(--admin-bg);">
+                <input type="text" class="form-control" value="${order.order_number || ''}" readonly style="background: var(--admin-bg);">
             </div>
             
             <div class="form-group">
@@ -665,18 +874,18 @@ class AdminPanel {
             
             <div class="form-group">
                 <label>Имя клиента <span style="color: var(--admin-danger);">*</span></label>
-                <input type="text" class="form-control" id="editClientName" value="${order.clientName || order.name || ''}" required>
+                <input type="text" class="form-control" id="editClientName" value="${order.client_name || ''}" required>
             </div>
             
             <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group">
                     <label>Email <span style="color: var(--admin-danger);">*</span></label>
-                    <input type="email" class="form-control" id="editClientEmail" value="${order.clientEmail || order.email || ''}" required>
+                    <input type="email" class="form-control" id="editClientEmail" value="${order.client_email || ''}" required>
                 </div>
                 
                 <div class="form-group">
                     <label>Телефон <span style="color: var(--admin-danger);">*</span></label>
-                    <input type="tel" class="form-control" id="editClientPhone" value="${order.clientPhone || order.phone || ''}" required>
+                    <input type="tel" class="form-control" id="editClientPhone" value="${order.client_phone || ''}" required>
                 </div>
             </div>
             
@@ -716,12 +925,12 @@ class AdminPanel {
             <div class="alert alert-info" style="margin: 20px 0; padding: 15px; background: rgba(59,130,246,0.1); border-radius: 10px; border-left: 4px solid var(--admin-info);">
                 <strong><i class="fas fa-info-circle"></i> Данные расчёта калькулятора:</strong><br>
                 <div style="margin-top: 10px; font-size: 14px; color: var(--admin-text-secondary);">
-                    <strong>Технология:</strong> ${order.calculatorData.technology || '-'}<br>
-                    <strong>Материал:</strong> ${order.calculatorData.material || '-'}<br>
-                    <strong>Вес:</strong> ${order.calculatorData.weight || 0}г<br>
-                    <strong>Количество:</strong> ${order.calculatorData.quantity || 0} шт<br>
-                    <strong>Заполнение:</strong> ${order.calculatorData.infill || 0}%<br>
-                    <strong>Качество:</strong> ${order.calculatorData.quality || '-'}
+                    <strong>Технология:</strong> ${order.calculator_data.technology || '-'}<br>
+                    <strong>Материал:</strong> ${order.calculator_data.material || '-'}<br>
+                    <strong>Вес:</strong> ${order.calculator_data.weight || 0}г<br>
+                    <strong>Количество:</strong> ${order.calculator_data.quantity || 0} шт<br>
+                    <strong>Заполнение:</strong> ${order.calculator_data.infill || 0}%<br>
+                    <strong>Качество:</strong> ${order.calculator_data.quality || '-'}
                 </div>
             </div>
             ` : ''}
@@ -729,11 +938,11 @@ class AdminPanel {
             <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding: 15px; background: var(--admin-bg); border-radius: 10px;">
                 <i class="fas fa-clock" style="color: var(--admin-text-secondary);"></i>
                 <div style="flex: 1; font-size: 13px; color: var(--admin-text-secondary);">
-                    <strong>Создан:</strong> ${this.formatDate(order.createdAt)}<br>
-                    ${order.updatedAt ? `<strong>Обновлён:</strong> ${this.formatDate(order.updatedAt)}` : ''}
+                    <strong>Создан:</strong> ${this.formatDate(order.created_at)}<br>
+                    ${order.updated_at ? `<strong>Обновлён:</strong> ${this.formatDate(order.updated_at)}` : ''}
                 </div>
                 <div style="text-align: right;">
-                    ${order.telegramSent ?
+                    ${order.telegram_sent ?
                 '<span class="telegram-status telegram-sent"><i class="fab fa-telegram"></i> Отправлено</span>' :
                 '<span class="telegram-status telegram-failed"><i class="fab fa-telegram"></i> Не отправлено</span>'}
                 </div>
@@ -745,8 +954,8 @@ class AdminPanel {
                     Отмена
                 </button>
                 <div style="display: flex; gap: 10px;">
-                    ${!order.telegramSent ? `
-                    <button type="button" class="btn btn-outline" onclick="admin.resendToTelegram('${order.id}')">
+                    ${!order.telegram_sent ? `
+                    <button type="button" class="btn btn-outline" onclick="admin.resendToTelegram(${order.id})">
                         <i class="fab fa-telegram"></i>
                         Отправить в Telegram
                     </button>
@@ -760,20 +969,21 @@ class AdminPanel {
         </form>
     `;
 
-        const modal = this.createModal(`Редактирование заявки #${order.orderNumber || order.id.substr(0, 8)}`, formHTML);
+        const modal = this.createModal(`Редактирование заявки #${order.order_number || order.id}`, formHTML);
 
         const form = document.getElementById('editOrderForm');
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
 
             const updatedData = {
                 type: document.getElementById('editOrderType').value,
-                clientName: document.getElementById('editClientName').value,
-                name: document.getElementById('editClientName').value,
-                clientEmail: document.getElementById('editClientEmail').value,
-                email: document.getElementById('editClientEmail').value,
-                clientPhone: document.getElementById('editClientPhone').value,
-                phone: document.getElementById('editClientPhone').value,
+                client_name: document.getElementById('editClientName').value,
+                client_email: document.getElementById('editClientEmail').value,
+                client_phone: document.getElementById('editClientPhone').value,
                 telegram: document.getElementById('editTelegram').value,
                 service: document.getElementById('editService').value,
                 subject: document.getElementById('editService').value,
@@ -783,73 +993,97 @@ class AdminPanel {
                 message: document.getElementById('editDetails').value
             };
 
-            db.updateItem('orders', id, updatedData);
+            const result = await this.api.fetch(`/api/orders/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(updatedData)
+            });
+
+            if (!result.success) {
+                this.showNotification(`Ошибка сохранения: ${result.error}`, 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+                return;
+            }
 
             this.showNotification('✅ Заявка успешно обновлена', 'success');
             this.closeAllModals();
-            this.renderOrdersTable();
-            this.updateOrdersBadge();
-            this.loadDashboard();
+            await await this.renderOrdersTable();
+            await await this.updateOrdersBadge();
+            await await this.loadDashboard();
         });
     }
+
 
     initOrdersFilters() {
         ['orderStatusFilter', 'orderTypeFilter', 'orderSearchFilter'].forEach(id => {
             const filter = document.getElementById(id);
             if (filter) {
                 const event = id.includes('Search') ? 'input' : 'change';
-                filter.addEventListener(event, () => {
-                    this.renderOrdersTable();
+                filter.addEventListener(event, async () => {
+                    await this.renderOrdersTable();
                 });
             }
         });
-    }
+    }    async updateOrdersBadge() {
+        const params = new URLSearchParams({
+            status: 'new',
+            per_page: 1,
+            page: 1
+        });
 
-    updateOrdersBadge() {
-        const orders = db.getData('orders') || [];
-        const newOrders = orders.filter(o => o.status === 'new').length;
+        const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+
+        if (!result.success) {
+            console.warn('Failed to update orders badge:', result.error);
+            return;
+        }
+
+        const newOrdersCount = result.data.pagination?.total || 0;
 
         const badge = document.getElementById('ordersBadge');
         if (badge) {
-            badge.textContent = newOrders;
-            badge.style.display = newOrders > 0 ? 'block' : 'none';
+            badge.textContent = newOrdersCount;
+            badge.style.display = newOrdersCount > 0 ? 'block' : 'none';
         }
 
         const notifDot = document.getElementById('notificationDot');
         if (notifDot) {
-            notifDot.style.display = newOrders > 0 ? 'block' : 'none';
+            notifDot.style.display = newOrdersCount > 0 ? 'block' : 'none';
         }
-    }
+    }    async viewOrder(id) {
+        const result = await this.api.fetch(`/api/orders/${id}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка загрузки заказа: ${result.error}`, 'error');
+            return;
+        }
 
-    viewOrder(id) {
-        const order = db.getItem('orders', id);
-        if (!order) return;
+        const order = result.data.data;
 
         let content = `
         <div class="detail-section">
             <h4>Информация о клиенте</h4>
-            <p><strong>Имя:</strong> ${order.clientName || order.name}</p>
-            <p><strong>Email:</strong> ${order.clientEmail || order.email}</p>
-            <p><strong>Телефон:</strong> ${order.clientPhone || order.phone}</p>
+            <p><strong>Имя:</strong> ${order.client_name || '-'}</p>
+            <p><strong>Email:</strong> ${order.client_email || '-'}</p>
+            <p><strong>Телефон:</strong> ${order.client_phone || '-'}</p>
             ${order.telegram ? `<p><strong>Telegram:</strong> ${order.telegram}</p>` : ''}
         </div>
     `;
 
-
-        if (order.type !== 'contact' && order.calculatorData) {
-            const calc = order.calculatorData;
+        if (order.type !== 'contact' && order.calculator_data) {
+            const calc = order.calculator_data;
             content += `
                 <div class="detail-section">
                     <h4>Детали заказа</h4>
-                    <p><strong>Услуга:</strong> ${order.service}</p>
-                    <p><strong>Сумма:</strong> ₽${order.amount.toLocaleString('ru-RU')}</p>
-                    <p><strong>Технология:</strong> ${(calc.technology || '').toUpperCase()}</p>
+                    <p><strong>Услуга:</strong> ${order.service || '-'}</p>
+                    <p><strong>Сумма:</strong> ₽${(order.amount || 0).toLocaleString('ru-RU')}</p>
+                    <p><strong>Технология:</strong> ${(calc.technology || '-').toUpperCase()}</p>
                     <p><strong>Материал:</strong> ${calc.material || '-'}</p>
                     <p><strong>Вес:</strong> ${calc.weight || '-'}г</p>
                     <p><strong>Количество:</strong> ${calc.quantity || '-'} шт</p>
                     <p><strong>Заполнение:</strong> ${calc.infill || '-'}%</p>
                     <p><strong>Качество:</strong> ${calc.quality || '-'}</p>
-                    <p><strong>Срок:</strong> ${calc.timeEstimate || '-'}</p>
+                    <p><strong>Срок:</strong> ${calc.timeEstimate || calc.time_estimate || '-'}</p>
                 </div>
             `;
         }
@@ -867,7 +1101,7 @@ class AdminPanel {
             content += `
                 <div class="detail-section">
                     <h4>Сообщение</h4>
-                    <p>${order.message || order.details}</p>
+                    <p>${order.message || order.details || '-'}</p>
                 </div>
             `;
         }
@@ -876,75 +1110,95 @@ class AdminPanel {
             <div class="detail-section">
                 <h4>Статус</h4>
                 <p><strong>Текущий статус:</strong> <span class="status-badge status-${order.status}">${this.getStatusName(order.status)}</span></p>
-                <p><strong>Дата создания:</strong> ${this.formatDate(order.createdAt)}</p>
-                ${order.telegramSent ?
+                <p><strong>Дата создания:</strong> ${this.formatDate(order.created_at)}</p>
+                ${order.telegram_sent ?
                 '<p><span class="telegram-status telegram-sent"><i class="fab fa-telegram"></i> Отправлено в Telegram</span></p>' :
                 '<p><span class="telegram-status telegram-failed"><i class="fab fa-telegram"></i> Не отправлено</span></p>'}
             </div>
         `;
 
-        if (order.status === 'new') {
-            content += `
+        content += `
     <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
         ${order.status === 'new' ? `
-        <button class="btn btn-primary" onclick="admin.markOrderProcessed('${order.id}')">
+        <button class="btn btn-primary" onclick="admin.markOrderProcessed(${order.id})">
             <i class="fas fa-check"></i>
             Отметить как обработанный
         </button>
         ` : ''}
         ${order.status !== 'completed' ? `
-        <button class="btn btn-outline" onclick="admin.markOrderCompleted('${order.id}')">
+        <button class="btn btn-outline" onclick="admin.markOrderCompleted(${order.id})">
             <i class="fas fa-check-double"></i>
             Выполнен
         </button>
         ` : ''}
-        <button class="btn btn-outline" onclick="admin.editOrder('${order.id}')">
+        <button class="btn btn-outline" onclick="admin.editOrder(${order.id})">
             <i class="fas fa-edit"></i>
             Редактировать
         </button>
-        ${!order.telegramSent ? `
-        <button class="btn btn-outline" onclick="admin.resendToTelegram('${order.id}')">
+        ${!order.telegram_sent ? `
+        <button class="btn btn-outline" onclick="admin.resendToTelegram(${order.id})">
             <i class="fab fa-telegram"></i>
             Отправить в Telegram
         </button>
         ` : ''}
     </div>
 `;
-        }
 
-        this.createModal(`Заказ #${order.orderNumber || order.id.substr(0, 8)}`, content);
-    }
-
-    markOrderCompleted(id) {
+        this.createModal(`Заказ #${order.order_number || order.id}`, content);
+    }    async markOrderCompleted(id) {
         if (!confirm('Отметить заявку как выполненную?')) return;
 
-        db.updateItem('orders', id, { status: 'completed' });
+        const result = await this.api.fetch(`/api/orders/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'completed' })
+        });
+
+        if (!result.success) {
+            this.showNotification(`Ошибка: ${result.error}`, 'error');
+            return;
+        }
+
         this.showNotification('✅ Заявка отмечена как выполненная', 'success');
         this.closeAllModals();
-        this.renderOrdersTable();
-        this.updateOrdersBadge();
-        this.loadDashboard();
-    }
+        await await this.renderOrdersTable();
+        await await this.updateOrdersBadge();
+        await await this.loadDashboard();
+    }    async markOrderProcessed(id) {
+        const result = await this.api.fetch(`/api/orders/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'processing' })
+        });
 
-    markOrderProcessed(id) {
-        db.updateItem('orders', id, { status: 'processing' });
+        if (!result.success) {
+            this.showNotification(`Ошибка: ${result.error}`, 'error');
+            return;
+        }
+
         this.showNotification('Заказ переведён в обработку', 'success');
         this.closeAllModals();
-        this.renderOrdersTable();
-        this.updateOrdersBadge();
-        this.loadDashboard();
+        await await this.renderOrdersTable();
+        await await this.updateOrdersBadge();
+        await await this.loadDashboard();
     }
+    async deleteOrder(id) {
+        if (!confirm('Удалить этот заказ? Это действие нельзя отменить.')) return;
 
-    deleteOrder(id) {
-        if (!confirm('Удалить этот заказ?')) return;
+        const result = await this.api.fetch(`/api/orders/${id}`, {
+            method: 'DELETE'
+        });
 
-        db.deleteItem('orders', id);
+        if (!result.success) {
+            this.showNotification(`Ошибка удаления: ${result.error}`, 'error');
+            return;
+        }
+
         this.showNotification('Заказ удалён', 'success');
-        this.renderOrdersTable();
-        this.updateOrdersBadge();
-        this.loadDashboard();
+        await await this.renderOrdersTable();
+        await await this.updateOrdersBadge();
+        await await this.loadDashboard();
     }
-    bulkChangeStatus() {
+
+        async bulkChangeStatus() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         const ids = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
 
@@ -960,81 +1214,77 @@ class AdminPanel {
             return;
         }
 
-        ids.forEach(id => {
-            db.updateItem('orders', id, { status: newStatus });
-        });
+        let successCount = 0;
+        let errorCount = 0;
 
-        this.showNotification(`✅ Статус изменён для ${ids.length} заявок`, 'success');
-        this.renderOrdersTable();
-        this.updateOrdersBadge();
-        this.loadDashboard();
-    }
-    sortOrders(column, direction = 'desc') {
-        let orders = db.getData('orders') || [];
+        for (const id of ids) {
+            const result = await this.api.fetch(`/api/orders/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ status: newStatus })
+            });
 
-        orders.sort((a, b) => {
-            let valA, valB;
-
-            switch (column) {
-                case 'date':
-                    valA = new Date(a.createdAt);
-                    valB = new Date(b.createdAt);
-                    break;
-                case 'amount':
-                    valA = a.amount || 0;
-                    valB = b.amount || 0;
-                    break;
-                case 'status':
-                    valA = a.status || '';
-                    valB = b.status || '';
-                    break;
-                default:
-                    return 0;
-            }
-
-            if (direction === 'asc') {
-                return valA > valB ? 1 : -1;
+            if (result.success) {
+                successCount++;
             } else {
-                return valA < valB ? 1 : -1;
+                errorCount++;
             }
-        });
+        }
 
-        this.renderOrdersTable(orders);
+        if (errorCount > 0) {
+            this.showNotification(`Обновлено: ${successCount}, ошибок: ${errorCount}`, 'warning');
+        } else {
+            this.showNotification(`✅ Статус изменён для ${successCount} заявок`, 'success');
+        }
+
+        await this.renderOrdersTable();
+        await this.updateOrdersBadge();
+        await this.loadDashboard();
     }
-    async resendToTelegram(id) {
-        const order = db.getItem('orders', id);
-        if (!order) return;
 
+    async resendToTelegram(id) {
         this.showNotification('Отправка в Telegram...', 'info');
 
-        const result = order.type === 'contact'
-            ? await telegramBot.sendContactNotification(order)
-            : await telegramBot.sendOrderNotification(order);
+        const result = await this.api.fetch(`/api/orders/${id}/resend-telegram`, {
+            method: 'POST'
+        });
 
-        if (result.success) {
-            db.updateItem('orders', id, { telegramSent: true });
-            this.showNotification('Успешно отправлено в Telegram', 'success');
-            this.closeAllModals();
-            this.viewOrder(id);
-        } else {
-            this.showNotification('Ошибка отправки: ' + result.error, 'error');
+        if (!result.success) {
+            this.showNotification(`Ошибка отправки: ${result.error}`, 'error');
+            return;
         }
+
+        this.showNotification('✅ Успешно отправлено в Telegram', 'success');
+        this.closeAllModals();
+        await this.viewOrder(id);
     }
 
-    exportOrders() {
-        const orders = db.getData('orders') || [];
+
+    async exportOrders() {
+        // Fetch all orders for export
+        const params = new URLSearchParams({
+            page: 1,
+            per_page: 1000  // Get a large batch for export
+        });
+
+        const result = await this.api.fetch(`/api/orders?${params.toString()}`);
+        
+        if (!result.success) {
+            this.showNotification(`Ошибка экспорта: ${result.error}`, 'error');
+            return;
+        }
+
+        const orders = result.data.data || [];
         const blob = new Blob([JSON.stringify(orders, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
+        URL.revokeObjectURL(url);
         link.download = `orders_${new Date().toISOString().split('T')[0]}.json`;
         link.click();
-        URL.revokeObjectURL(url);
-
         this.showNotification('Заказы экспортированы', 'success');
     }
 
-    bulkDeleteOrders() {
+        async bulkDeleteOrders() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         const ids = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
 
@@ -1043,14 +1293,32 @@ class AdminPanel {
             return;
         }
 
-        if (!confirm(`Удалить ${ids.length} заказов?`)) return;
+        if (!confirm(`Удалить ${ids.length} заказов? Это действие нельзя отменить.`)) return;
 
-        ids.forEach(id => db.deleteItem('orders', id));
+        let successCount = 0;
+        let errorCount = 0;
 
-        this.showNotification(`Удалено заказов: ${ids.length}`, 'success');
-        this.renderOrdersTable();
-        this.updateOrdersBadge();
-        this.loadDashboard();
+        for (const id of ids) {
+            const result = await this.api.fetch(`/api/orders/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (result.success) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        }
+
+        if (errorCount > 0) {
+            this.showNotification(`Удалено: ${successCount}, ошибок: ${errorCount}`, 'warning');
+        } else {
+            this.showNotification(`Удалено заказов: ${successCount}`, 'success');
+        }
+
+        await this.renderOrdersTable();
+        await this.updateOrdersBadge();
+        await this.loadDashboard();
     }
 
     addOrder() {
@@ -1112,7 +1380,7 @@ class AdminPanel {
             })
         ];
 
-        this.showFormModal('Добавить заказ вручную', fields, (formData) => {
+        this.showFormModal('Добавить заказ вручную', fields, async (formData) => {
             const order = {
                 type: 'order',
                 clientName: formData.clientName,
@@ -1137,9 +1405,9 @@ class AdminPanel {
             }
 
             this.showNotification('Заказ успешно добавлен', 'success');
-            this.renderOrdersTable();
-            this.updateOrdersBadge();
-            this.loadDashboard();
+            await this.renderOrdersTable();
+            await this.updateOrdersBadge();
+            await this.loadDashboard();
         });
     }
 
