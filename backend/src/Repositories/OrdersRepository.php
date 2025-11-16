@@ -139,7 +139,7 @@ class OrdersRepository
             'calculator_data' => !empty($data['calculator_data']) 
                 ? json_encode($data['calculator_data']) 
                 : null,
-            'telegram_sent' => $data['telegram_sent'] ?? false
+            'telegram_sent' => (int)($data['telegram_sent'] ?? 0)
         ]);
 
         return (int) $this->db->lastInsertId();
@@ -190,7 +190,7 @@ class OrdersRepository
             WHERE id = ?
         ');
 
-        return $stmt->execute([$sent, $id]);
+        return $stmt->execute([(int)$sent, $id]);
     }
 
     public function delete(int $id): bool

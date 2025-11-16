@@ -318,7 +318,7 @@ test('Protected endpoint accepts valid token', function() use ($baseUrl, $adminT
     }
     
     if (!isset($response['json']['data']['login'])) {
-        return ['status' => 'fail', 'message'] = 'No user data in response';
+        return ['status' => 'fail', 'message' => 'No user data in response'];
     }
     
     $login = $response['json']['data']['login'];
@@ -360,7 +360,7 @@ foreach ($publicEndpoints as $endpoint => $name) {
         }
         
         if (!isset($response['json']['success'])) {
-            return ['status' => 'fail', 'message'] => 'Missing success field'];
+            return ['status' => 'fail', 'message' => 'Missing success field'];
         }
         
         $data = $response['json']['data'] ?? [];
@@ -424,19 +424,23 @@ test('Create order (public)', function() use ($baseUrl, &$testOrderId) {
         'message' => 'Test order from comprehensive test suite'
     ]);
     
-    if ($response['status'] != 200) {
+    // Accept both 200 and 201 (Created) as valid
+    if ($response['status'] != 200 && $response['status'] != 201) {
         return ['status' => 'fail', 'message' => "HTTP {$response['status']}"];
     }
     
-    if (!isset($response['json']['data']['order_number'])) {
+    // Check for order in data.order (new format) or data (old format)
+    $orderData = $response['json']['data']['order'] ?? $response['json']['data'] ?? null;
+    
+    if (!isset($orderData['order_number'])) {
         return ['status' => 'fail', 'message' => 'No order_number in response'];
     }
     
-    if (isset($response['json']['data']['id'])) {
-        $testOrderId = $response['json']['data']['id'];
+    if (isset($orderData['id'])) {
+        $testOrderId = $orderData['id'];
     }
     
-    return ['status' => 'pass', 'info' => $response['json']['data']['order_number']];
+    return ['status' => 'pass', 'info' => $orderData['order_number']];
 });
 
 test('Order validation works', function() use ($baseUrl) {
@@ -511,7 +515,7 @@ test('Delete order (admin)', function() use ($baseUrl, $adminToken, $testOrderId
         return ['status' => 'fail', 'message' => "HTTP {$response['status']}"];
     }
     
-    return ['status' => 'pass', 'info'] = 'Order deleted';
+    return ['status' => 'pass', 'info' => 'Order deleted'];
 });
 
 // ═══════════════════════════════════════════════════════════════
