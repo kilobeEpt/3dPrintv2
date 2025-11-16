@@ -2,13 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Helpers\Response;
 use App\Services\PortfolioService;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class PortfolioController
 {
+    use BaseController;
+    
     private PortfolioService $service;
 
     public function __construct()
@@ -16,83 +15,75 @@ class PortfolioController
         $this->service = new PortfolioService();
     }
 
-    public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function index(): array
     {
-        $queryParams = $request->getQueryParams();
+        $queryParams = $this->getQueryParams();
         $category = $queryParams['category'] ?? null;
         
         $portfolio = $this->service->getAll($category);
-        return Response::success($portfolio, 'Portfolio items retrieved successfully');
+        return $this->success($portfolio, 'Portfolio items retrieved successfully');
     }
 
-    public function show(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function show(string $id): array
     {
-        $id = (int) $args['id'];
-        $item = $this->service->getById($id);
+        $item = $this->service->getById((int)$id);
 
         if (!$item) {
-            return Response::notFound('Portfolio item not found');
+            return $this->notFound('Portfolio item not found');
         }
 
-        return Response::success($item, 'Portfolio item retrieved successfully');
+        return $this->success($item, 'Portfolio item retrieved successfully');
     }
 
-    public function categories(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function categories(): array
     {
         $categories = $this->service->getCategories();
-        return Response::success($categories, 'Categories retrieved successfully');
+        return $this->success($categories, 'Categories retrieved successfully');
     }
 
-    public function store(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function store(): array
     {
-        $data = $request->getParsedBody();
+        $data = $this->getRequestData();
         $result = $this->service->create($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to create portfolio item');
+            return $this->error($result['error'] ?? 'Failed to create portfolio item');
         }
 
         $item = $this->service->getById($result['id']);
-
-        return Response::success($item, 'Portfolio item created successfully', 201);
+        return $this->success($item, 'Portfolio item created successfully', 201);
     }
 
-    public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function update(string $id): array
     {
-        $id = (int) $args['id'];
-        $data = $request->getParsedBody();
-        
-        $result = $this->service->update($id, $data);
+        $data = $this->getRequestData();
+        $result = $this->service->update((int)$id, $data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
             if ($result['error'] === 'Portfolio item not found') {
-                return Response::notFound('Portfolio item not found');
+                return $this->notFound('Portfolio item not found');
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update portfolio item');
+            return $this->error($result['error'] ?? 'Failed to update portfolio item');
         }
 
-        $item = $this->service->getById($id);
-
-        return Response::success($item, 'Portfolio item updated successfully');
+        $item = $this->service->getById((int)$id);
+        return $this->success($item, 'Portfolio item updated successfully');
     }
 
-    public function destroy(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function destroy(string $id): array
     {
-        $id = (int) $args['id'];
-        
-        $existing = $this->service->getById($id);
+        $existing = $this->service->getById((int)$id);
         if (!$existing) {
-            return Response::notFound('Portfolio item not found');
+            return $this->notFound('Portfolio item not found');
         }
 
-        $this->service->delete($id);
-
-        return Response::success(null, 'Portfolio item deleted successfully');
+        $this->service->delete((int)$id);
+        return $this->success(null, 'Portfolio item deleted successfully');
     }
 }

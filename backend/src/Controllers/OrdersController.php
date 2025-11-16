@@ -2,13 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Helpers\Response;
 use App\Services\OrdersService;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class OrdersController
 {
+    use BaseController;
+    
     private OrdersService $service;
 
     public function __construct(OrdersService $service = null)
@@ -19,26 +18,25 @@ class OrdersController
     /**
      * Public endpoint: Submit a new order or contact form
      */
-    public function submit(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function submit(): array
     {
-        $data = $request->getParsedBody();
+        $data = $this->getRequestData();
         
         // Get client IP address for rate limiting
-        $serverParams = $request->getServerParams();
-        $ipAddress = $serverParams['REMOTE_ADDR'] ?? null;
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
         
         $result = $this->service->create($data, $ipAddress);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to create order');
+            return $this->error($result['error'] ?? 'Failed to create order');
         }
 
         $order = $this->service->getById($result['id']);
 
-        return Response::success([
+        return $this->success([
             'order' => $order,
             'telegram_sent' => $result['telegram_sent'] ?? false
         ], 'Order submitted successfully', 201);
@@ -47,9 +45,9 @@ class OrdersController
     /**
      * Admin endpoint: List all orders with pagination and filters
      */
-    public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function index(): array
     {
-        $queryParams = $request->getQueryParams();
+        $queryParams = $this->getQueryParams();
 
         $filters = [
             'status' => $queryParams['status'] ?? null,
@@ -64,83 +62,74 @@ class OrdersController
 
         $result = $this->service->getAll($filters, $page, $perPage);
 
-        return Response::success($result, 'Orders retrieved successfully');
+        return $this->success($result, 'Orders retrieved successfully');
     }
 
     /**
      * Admin endpoint: Get single order by ID
      */
-    public function show(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function show(string $id): array
     {
-        $id = (int) $args['id'];
-        $order = $this->service->getById($id);
+        $order = $this->service->getById((int)$id);
 
         if (!$order) {
-            return Response::notFound('Order not found');
+            return $this->notFound('Order not found');
         }
 
-        return Response::success($order, 'Order retrieved successfully');
+        return $this->success($order, 'Order retrieved successfully');
     }
 
     /**
      * Admin endpoint: Update an order
      */
-    public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function update(string $id): array
     {
-        $id = (int) $args['id'];
-        $data = $request->getParsedBody();
-
-        $result = $this->service->update($id, $data);
+        $data = $this->getRequestData();
+        $result = $this->service->update((int)$id, $data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
             if ($result['error'] === 'Order not found') {
-                return Response::notFound('Order not found');
+                return $this->notFound('Order not found');
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update order');
+            return $this->error($result['error'] ?? 'Failed to update order');
         }
 
-        $order = $this->service->getById($id);
-
-        return Response::success($order, 'Order updated successfully');
+        $order = $this->service->getById((int)$id);
+        return $this->success($order, 'Order updated successfully');
     }
 
     /**
      * Admin endpoint: Delete an order
      */
-    public function destroy(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function destroy(string $id): array
     {
-        $id = (int) $args['id'];
-
-        $existing = $this->service->getById($id);
+        $existing = $this->service->getById((int)$id);
         if (!$existing) {
-            return Response::notFound('Order not found');
+            return $this->notFound('Order not found');
         }
 
-        $this->service->delete($id);
-
-        return Response::success(null, 'Order deleted successfully');
+        $this->service->delete((int)$id);
+        return $this->success(null, 'Order deleted successfully');
     }
 
     /**
      * Admin endpoint: Resend Telegram notification for an order
      */
-    public function resendTelegram(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function resendTelegram(string $id): array
     {
-        $id = (int) $args['id'];
-
-        $result = $this->service->resendTelegram($id);
+        $result = $this->service->resendTelegram((int)$id);
 
         if (!$result['success']) {
             if ($result['error'] === 'Order not found') {
-                return Response::notFound('Order not found');
+                return $this->notFound('Order not found');
             }
-            return Response::badRequest($result['error'] ?? 'Failed to send Telegram notification');
+            return $this->error($result['error'] ?? 'Failed to send Telegram notification');
         }
 
-        return Response::success([
+        return $this->success([
             'message_id' => $result['message_id'] ?? null
         ], 'Telegram notification sent successfully');
     }

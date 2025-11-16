@@ -12,41 +12,39 @@ use App\Controllers\ContentController;
 use App\Controllers\SettingsController;
 use App\Controllers\OrdersController;
 use App\Controllers\TelegramController;
-use App\Helpers\Response;
 use App\Helpers\TelegramService;
-use App\Middleware\AuthMiddleware;
-use App\Middleware\CorsMiddleware;
-use App\Middleware\ErrorMiddleware;
 use App\Services\AuthService;
 use App\Services\OrdersService;
-use Dotenv\Dotenv;
-use Slim\Factory\AppFactory;
-use Slim\App as SlimApp;
-use Slim\Routing\RouteCollectorProxy;
 
+/**
+ * Standalone Application - No Slim Framework Dependencies
+ * Uses SimpleRouter for routing and plain PHP for request handling
+ */
 class App
 {
-    private SlimApp $app;
+    private $router;
     private array $config;
+    private AuthService $authService;
+    private ?array $currentUser = null;
 
     public function __construct()
     {
         $this->loadEnvironment();
         $this->config = $this->loadConfig();
         $this->initializeDatabase();
-        $this->app = AppFactory::create();
+        $this->router = new \SimpleRouter();
+        $this->authService = new AuthService($this->config['jwt']);
         $this->configureMiddleware();
         $this->registerRoutes();
     }
 
     private function loadEnvironment(): void
     {
-        $dotenv = Dotenv::createImmutable(dirname(__DIR__, 2));
+        $envFile = dirname(__DIR__, 2) . '/.env';
         
-        try {
-            $dotenv->load();
-        } catch (\Exception $e) {
-            // .env file not found - will use default values or fail gracefully
+        if (file_exists($envFile)) {
+            $env = new \SimpleEnv();
+            $env->load($envFile);
         }
     }
 
@@ -92,235 +90,309 @@ class App
 
     private function configureMiddleware(): void
     {
-        // Add error handling middleware
-        $errorMiddleware = new ErrorMiddleware($this->config['app']['debug']);
-        $this->app->add($errorMiddleware);
+        // Global CORS middleware
+        $this->router->addGlobalMiddleware(function() {
+            $this->handleCors();
+            return null; // Continue to next middleware
+        });
+    }
 
-        // Add CORS middleware
-        $corsMiddleware = new CorsMiddleware($this->config['cors']);
-        $this->app->add($corsMiddleware);
+    private function handleCors(): void
+    {
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        $allowedOrigins = $this->config['cors']['origins'];
+        
+        if (in_array('*', $allowedOrigins) || in_array($origin, $allowedOrigins)) {
+            header('Access-Control-Allow-Origin: ' . ($origin ?: '*'));
+            header('Access-Control-Allow-Credentials: true');
+        }
+        
+        header('Access-Control-Allow-Methods: ' . implode(', ', $this->config['cors']['methods']));
+        header('Access-Control-Allow-Headers: ' . implode(', ', $this->config['cors']['headers']));
+        header('Access-Control-Max-Age: ' . $this->config['cors']['maxAge']);
+    }
 
-        // Add body parsing middleware
-        $this->app->addBodyParsingMiddleware();
-
-        // Add routing middleware
-        $this->app->addRoutingMiddleware();
+    private function authMiddleware(array $roles = []): ?array
+    {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+        
+        if (empty($authHeader) || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            http_response_code(401);
+            return [
+                'success' => false,
+                'message' => 'Authentication required'
+            ];
+        }
+        
+        $token = $matches[1];
+        $payload = $this->authService->verifyToken($token);
+        
+        if (!$payload) {
+            http_response_code(401);
+            return [
+                'success' => false,
+                'message' => 'Invalid or expired token'
+            ];
+        }
+        
+        $user = $this->authService->getUserById($payload->sub);
+        
+        if (!$user) {
+            http_response_code(401);
+            return [
+                'success' => false,
+                'message' => 'User not found'
+            ];
+        }
+        
+        // Check role if specified
+        if (!empty($roles) && !in_array($user['role'], $roles)) {
+            http_response_code(403);
+            return [
+                'success' => false,
+                'message' => 'Access denied'
+            ];
+        }
+        
+        $this->currentUser = $user;
+        return null; // Allow request to continue
     }
 
     private function registerRoutes(): void
     {
-        $authService = new AuthService($this->config['jwt']);
-        $authController = new AuthController($authService);
-
         // Health check endpoint
-        $config = $this->config;
-        $this->app->get('/api/health', function ($request, $response) use ($config) {
+        $this->router->get('/api/health', function() {
             $dbStatus = Database::testConnection();
             
             $health = [
                 'status' => $dbStatus['connected'] ? 'healthy' : 'unhealthy',
                 'timestamp' => date('Y-m-d H:i:s'),
-                'environment' => $config['app']['env'],
+                'environment' => $this->config['app']['env'],
                 'database' => $dbStatus
             ];
 
-            $statusCode = $dbStatus['connected'] ? 200 : 503;
-
-            return Response::json($health, $statusCode);
+            http_response_code($dbStatus['connected'] ? 200 : 503);
+            return $health;
         });
 
         // API root endpoint
-        $this->app->get('/api', function ($request, $response) {
-            return Response::success([
-                'name' => '3D Print Pro API',
-                'version' => '1.0.0',
-                'documentation' => '/api/docs',
-                'endpoints' => [
-                    'GET /api/health' => 'Health check and database status',
-                    'GET /api' => 'API information',
-                    'POST /api/auth/login' => 'Authenticate and get JWT token',
-                    'POST /api/auth/logout' => 'Logout (client-side token removal)',
-                    'POST /api/auth/refresh' => 'Refresh access token',
-                    'GET /api/auth/me' => 'Get current authenticated user (requires token)'
+        $this->router->get('/api', function() {
+            return [
+                'success' => true,
+                'message' => 'Welcome to 3D Print Pro API',
+                'data' => [
+                    'name' => '3D Print Pro API',
+                    'version' => '1.0.0',
+                    'documentation' => '/api/docs',
+                    'endpoints' => [
+                        'GET /api/health' => 'Health check and database status',
+                        'GET /api' => 'API information',
+                        'POST /api/auth/login' => 'Authenticate and get JWT token',
+                        'POST /api/auth/logout' => 'Logout (client-side token removal)',
+                        'POST /api/auth/refresh' => 'Refresh access token',
+                        'GET /api/auth/me' => 'Get current authenticated user (requires token)'
+                    ]
                 ]
-            ], 'Welcome to 3D Print Pro API');
+            ];
         });
 
         // Authentication routes
-        $this->app->group('/api/auth', function (RouteCollectorProxy $group) use ($authController, $authService) {
-            $group->post('/login', [$authController, 'login']);
-            $group->post('/logout', [$authController, 'logout']);
-            $group->post('/refresh', [$authController, 'refresh']);
-            
-            $group->get('/me', [$authController, 'me'])
-                ->add(new AuthMiddleware($authService));
+        $authController = new AuthController($this->authService);
+        $this->router->post('/api/auth/login', [$authController, 'login']);
+        $this->router->post('/api/auth/logout', [$authController, 'logout']);
+        $this->router->post('/api/auth/refresh', [$authController, 'refresh']);
+        $this->router->get('/api/auth/me', function() use ($authController) {
+            if ($error = $this->authMiddleware()) return $error;
+            return $authController->me($this->currentUser);
         });
 
-        // Protected test route (example)
-        $this->app->get('/api/protected', function ($request, $response) {
-            $user = $request->getAttribute('user');
-            return Response::success([
-                'message' => 'This is a protected route',
-                'user' => $user
-            ]);
-        })->add(new AuthMiddleware($authService));
-
-        // Admin-only test route (example)
-        $this->app->get('/api/admin', function ($request, $response) {
-            $user = $request->getAttribute('user');
-            return Response::success([
-                'message' => 'This is an admin-only route',
-                'user' => $user
-            ]);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Content API Routes
-        $this->registerContentRoutes($authService);
-
-        // 404 handler for undefined routes
-        $this->app->map(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], '/api/{path:.*}', 
-            function ($request, $response) {
-                return Response::notFound('Endpoint not found');
-            }
-        );
-    }
-
-    private function registerContentRoutes(AuthService $authService): void
-    {
+        // Services routes
         $servicesController = new ServicesController();
+        $this->router->get('/api/services', [$servicesController, 'index']);
+        $this->router->get('/api/services/{id}', [$servicesController, 'show']);
+        
+        // Admin services routes
+        $this->router->get('/api/admin/services', function() use ($servicesController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $servicesController->adminIndex();
+        });
+        $this->router->post('/api/admin/services', function() use ($servicesController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $servicesController->store();
+        });
+        $this->router->put('/api/admin/services/{id}', function($id) use ($servicesController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $servicesController->update($id);
+        });
+        $this->router->delete('/api/admin/services/{id}', function($id) use ($servicesController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $servicesController->destroy($id);
+        });
+
+        // Portfolio routes
         $portfolioController = new PortfolioController();
+        $this->router->get('/api/portfolio', [$portfolioController, 'index']);
+        $this->router->get('/api/portfolio/categories', [$portfolioController, 'categories']);
+        $this->router->get('/api/portfolio/{id}', [$portfolioController, 'show']);
+        
+        // Admin portfolio routes
+        $this->router->post('/api/admin/portfolio', function() use ($portfolioController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $portfolioController->store();
+        });
+        $this->router->put('/api/admin/portfolio/{id}', function($id) use ($portfolioController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $portfolioController->update($id);
+        });
+        $this->router->delete('/api/admin/portfolio/{id}', function($id) use ($portfolioController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $portfolioController->destroy($id);
+        });
+
+        // Testimonials routes
         $testimonialsController = new TestimonialsController();
+        $this->router->get('/api/testimonials', [$testimonialsController, 'index']);
+        $this->router->get('/api/testimonials/{id}', [$testimonialsController, 'show']);
+        
+        // Admin testimonials routes
+        $this->router->get('/api/admin/testimonials', function() use ($testimonialsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $testimonialsController->adminIndex();
+        });
+        $this->router->post('/api/admin/testimonials', function() use ($testimonialsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $testimonialsController->store();
+        });
+        $this->router->put('/api/admin/testimonials/{id}', function($id) use ($testimonialsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $testimonialsController->update($id);
+        });
+        $this->router->delete('/api/admin/testimonials/{id}', function($id) use ($testimonialsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $testimonialsController->destroy($id);
+        });
+
+        // FAQ routes
         $faqController = new FaqController();
+        $this->router->get('/api/faq', [$faqController, 'index']);
+        $this->router->get('/api/faq/{id}', [$faqController, 'show']);
+        
+        // Admin FAQ routes
+        $this->router->get('/api/admin/faq', function() use ($faqController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $faqController->adminIndex();
+        });
+        $this->router->post('/api/admin/faq', function() use ($faqController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $faqController->store();
+        });
+        $this->router->put('/api/admin/faq/{id}', function($id) use ($faqController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $faqController->update($id);
+        });
+        $this->router->delete('/api/admin/faq/{id}', function($id) use ($faqController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $faqController->destroy($id);
+        });
+
+        // Content routes
         $contentController = new ContentController();
+        $this->router->get('/api/content', [$contentController, 'index']);
+        $this->router->get('/api/content/{section}', [$contentController, 'show']);
+        $this->router->get('/api/stats', [$contentController, 'getStats']);
+        
+        // Admin content routes
+        $this->router->put('/api/admin/content/{section}', function($section) use ($contentController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $contentController->upsert($section);
+        });
+        $this->router->delete('/api/admin/content/{section}', function($section) use ($contentController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $contentController->destroy($section);
+        });
+        $this->router->put('/api/admin/stats', function() use ($contentController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $contentController->updateStats();
+        });
 
-        // Public Services Routes
-        $this->app->get('/api/services', [$servicesController, 'index']);
-        $this->app->get('/api/services/{id}', [$servicesController, 'show']);
-
-        // Admin Services Routes
-        $this->app->group('/api/admin/services', function (RouteCollectorProxy $group) use ($servicesController) {
-            $group->get('', [$servicesController, 'adminIndex']);
-            $group->post('', [$servicesController, 'store']);
-            $group->put('/{id}', [$servicesController, 'update']);
-            $group->patch('/{id}', [$servicesController, 'update']);
-            $group->delete('/{id}', [$servicesController, 'destroy']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Public Portfolio Routes
-        $this->app->get('/api/portfolio', [$portfolioController, 'index']);
-        $this->app->get('/api/portfolio/categories', [$portfolioController, 'categories']);
-        $this->app->get('/api/portfolio/{id}', [$portfolioController, 'show']);
-
-        // Admin Portfolio Routes
-        $this->app->group('/api/admin/portfolio', function (RouteCollectorProxy $group) use ($portfolioController) {
-            $group->post('', [$portfolioController, 'store']);
-            $group->put('/{id}', [$portfolioController, 'update']);
-            $group->patch('/{id}', [$portfolioController, 'update']);
-            $group->delete('/{id}', [$portfolioController, 'destroy']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Public Testimonials Routes
-        $this->app->get('/api/testimonials', [$testimonialsController, 'index']);
-        $this->app->get('/api/testimonials/{id}', [$testimonialsController, 'show']);
-
-        // Admin Testimonials Routes
-        $this->app->group('/api/admin/testimonials', function (RouteCollectorProxy $group) use ($testimonialsController) {
-            $group->get('', [$testimonialsController, 'adminIndex']);
-            $group->post('', [$testimonialsController, 'store']);
-            $group->put('/{id}', [$testimonialsController, 'update']);
-            $group->patch('/{id}', [$testimonialsController, 'update']);
-            $group->delete('/{id}', [$testimonialsController, 'destroy']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Public FAQ Routes
-        $this->app->get('/api/faq', [$faqController, 'index']);
-        $this->app->get('/api/faq/{id}', [$faqController, 'show']);
-
-        // Admin FAQ Routes
-        $this->app->group('/api/admin/faq', function (RouteCollectorProxy $group) use ($faqController) {
-            $group->get('', [$faqController, 'adminIndex']);
-            $group->post('', [$faqController, 'store']);
-            $group->put('/{id}', [$faqController, 'update']);
-            $group->patch('/{id}', [$faqController, 'update']);
-            $group->delete('/{id}', [$faqController, 'destroy']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Public Content Routes
-        $this->app->get('/api/content', [$contentController, 'index']);
-        $this->app->get('/api/content/{section}', [$contentController, 'show']);
-        $this->app->get('/api/stats', [$contentController, 'getStats']);
-
-        // Admin Content Routes
-        $this->app->group('/api/admin/content', function (RouteCollectorProxy $group) use ($contentController) {
-            $group->put('/{section}', [$contentController, 'upsert']);
-            $group->patch('/{section}', [$contentController, 'upsert']);
-            $group->delete('/{section}', [$contentController, 'destroy']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Admin Stats Routes
-        $this->app->group('/api/admin/stats', function (RouteCollectorProxy $group) use ($contentController) {
-            $group->put('', [$contentController, 'updateStats']);
-            $group->patch('', [$contentController, 'updateStats']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Orders Routes
+        // Orders routes
         $telegramService = new TelegramService(
             $this->config['telegram']['botToken'] ?? '',
             $this->config['telegram']['chatId'] ?? ''
         );
         $ordersService = new OrdersService($telegramService);
         $ordersController = new OrdersController($ordersService);
+        
+        // Public order submission
+        $this->router->post('/api/orders', [$ordersController, 'submit']);
+        
+        // Admin orders routes
+        $this->router->get('/api/orders', function() use ($ordersController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $ordersController->index();
+        });
+        $this->router->get('/api/orders/{id}', function($id) use ($ordersController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $ordersController->show($id);
+        });
+        $this->router->put('/api/orders/{id}', function($id) use ($ordersController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $ordersController->update($id);
+        });
+        $this->router->delete('/api/orders/{id}', function($id) use ($ordersController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $ordersController->destroy($id);
+        });
+        $this->router->post('/api/orders/{id}/resend-telegram', function($id) use ($ordersController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $ordersController->resendTelegram($id);
+        });
 
-        // Public Orders Route (submit order/contact)
-        $this->app->post('/api/orders', [$ordersController, 'submit']);
-
-        // Admin Orders Routes
-        $this->app->group('/api/orders', function (RouteCollectorProxy $group) use ($ordersController) {
-            $group->get('', [$ordersController, 'index']);
-            $group->get('/{id}', [$ordersController, 'show']);
-            $group->put('/{id}', [$ordersController, 'update']);
-            $group->patch('/{id}', [$ordersController, 'update']);
-            $group->delete('/{id}', [$ordersController, 'destroy']);
-            $group->post('/{id}/resend-telegram', [$ordersController, 'resendTelegram']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Settings Routes
+        // Settings routes
         $settingsController = new SettingsController();
+        $this->router->get('/api/settings/public', [$settingsController, 'getPublicSettings']);
+        
+        // Admin settings routes
+        $this->router->get('/api/settings', function() use ($settingsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $settingsController->getAdminSettings();
+        });
+        $this->router->put('/api/settings', function() use ($settingsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $settingsController->updateGeneralSettings();
+        });
+        $this->router->put('/api/settings/calculator', function() use ($settingsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $settingsController->updateCalculatorSettings();
+        });
+        $this->router->put('/api/settings/forms', function() use ($settingsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $settingsController->updateFormSettings();
+        });
+        $this->router->put('/api/settings/telegram', function() use ($settingsController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $settingsController->updateTelegramSettings();
+        });
 
-        // Public Settings Route
-        $this->app->get('/api/settings/public', [$settingsController, 'getPublicSettings']);
-
-        // Admin Settings Routes
-        $this->app->group('/api/settings', function (RouteCollectorProxy $group) use ($settingsController) {
-            $group->get('', [$settingsController, 'getAdminSettings']);
-            $group->put('', [$settingsController, 'updateGeneralSettings']);
-            $group->patch('', [$settingsController, 'updateGeneralSettings']);
-            $group->put('/calculator', [$settingsController, 'updateCalculatorSettings']);
-            $group->patch('/calculator', [$settingsController, 'updateCalculatorSettings']);
-            $group->put('/forms', [$settingsController, 'updateFormSettings']);
-            $group->patch('/forms', [$settingsController, 'updateFormSettings']);
-            $group->put('/telegram', [$settingsController, 'updateTelegramSettings']);
-            $group->patch('/telegram', [$settingsController, 'updateTelegramSettings']);
-        })->add(new AuthMiddleware($authService, ['admin']));
-
-        // Telegram Admin Routes
+        // Telegram admin routes
         $telegramController = new TelegramController($telegramService);
-
-        $this->app->group('/api/telegram', function (RouteCollectorProxy $group) use ($telegramController) {
-            $group->post('/test', [$telegramController, 'test']);
-            $group->get('/chat-id', [$telegramController, 'getChatId']);
-            $group->get('/status', [$telegramController, 'status']);
-        })->add(new AuthMiddleware($authService, ['admin']));
+        $this->router->post('/api/telegram/test', function() use ($telegramController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $telegramController->test();
+        });
+        $this->router->get('/api/telegram/chat-id', function() use ($telegramController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $telegramController->getChatId();
+        });
+        $this->router->get('/api/telegram/status', function() use ($telegramController) {
+            if ($error = $this->authMiddleware(['admin'])) return $error;
+            return $telegramController->status();
+        });
     }
 
     public function run(): void
     {
-        $this->app->run();
-    }
-
-    public function getApp(): SlimApp
-    {
-        return $this->app;
+        $this->router->run();
     }
 
     public function getConfig(): array

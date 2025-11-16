@@ -2,13 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Helpers\Response;
 use App\Services\SettingsService;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class SettingsController
 {
+    use BaseController;
+    
     private SettingsService $service;
 
     public function __construct()
@@ -16,87 +15,79 @@ class SettingsController
         $this->service = new SettingsService();
     }
 
-    public function getPublicSettings(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function getPublicSettings(): array
     {
         $settings = $this->service->getPublicSettings();
-        return Response::success($settings, 'Public settings retrieved successfully');
+        return $this->success($settings, 'Public settings retrieved successfully');
     }
 
-    public function getAdminSettings(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function getAdminSettings(): array
     {
         $settings = $this->service->getAdminSettings();
-        return Response::success($settings, 'Admin settings retrieved successfully');
+        return $this->success($settings, 'Admin settings retrieved successfully');
     }
 
-    public function updateGeneralSettings(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function updateGeneralSettings(): array
     {
-        $data = $request->getParsedBody();
-        
+        $data = $this->getRequestData();
         $result = $this->service->updateGeneralSettings($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update settings');
+            return $this->error($result['error'] ?? 'Failed to update settings');
         }
 
         $settings = $this->service->getAdminSettings();
-
-        return Response::success($settings, 'General settings updated successfully');
+        return $this->success($settings, 'General settings updated successfully');
     }
 
-    public function updateCalculatorSettings(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function updateCalculatorSettings(): array
     {
-        $data = $request->getParsedBody();
-        
+        $data = $this->getRequestData();
         $result = $this->service->updateCalculatorSettings($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update calculator settings');
+            return $this->error($result['error'] ?? 'Failed to update calculator settings');
         }
 
         $settings = $this->service->getAdminSettings();
-
-        return Response::success($settings['calculator'], 'Calculator settings updated successfully');
+        return $this->success($settings['calculator'], 'Calculator settings updated successfully');
     }
 
-    public function updateFormSettings(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function updateFormSettings(): array
     {
-        $data = $request->getParsedBody();
-        
+        $data = $this->getRequestData();
         $result = $this->service->updateFormSettings($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update form settings');
+            return $this->error($result['error'] ?? 'Failed to update form settings');
         }
 
         $settings = $this->service->getAdminSettings();
-
-        return Response::success($settings['forms'], 'Form settings updated successfully');
+        return $this->success($settings['forms'], 'Form settings updated successfully');
     }
 
-    public function updateTelegramSettings(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function updateTelegramSettings(): array
     {
-        $data = $request->getParsedBody();
-        
+        $data = $this->getRequestData();
         $result = $this->service->updateTelegramSettings($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update Telegram settings');
+            return $this->error($result['error'] ?? 'Failed to update Telegram settings');
         }
 
         $settings = $this->service->getAdminSettings();
-
-        return Response::success($settings['integrations']['telegram'], 'Telegram settings updated successfully');
+        return $this->success($settings['integrations']['telegram'], 'Telegram settings updated successfully');
     }
 }

@@ -2,13 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Helpers\Response;
 use App\Services\TestimonialsService;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class TestimonialsController
 {
+    use BaseController;
+    
     private TestimonialsService $service;
 
     public function __construct()
@@ -16,80 +15,72 @@ class TestimonialsController
         $this->service = new TestimonialsService();
     }
 
-    public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function index(): array
     {
-        $testimonials = $this->service->getAll(true);
-        return Response::success($testimonials, 'Testimonials retrieved successfully');
+        $items = $this->service->getAll(true);
+        return $this->success($items, 'Testimonials retrieved successfully');
     }
 
-    public function show(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function show(string $id): array
     {
-        $id = (int) $args['id'];
-        $testimonial = $this->service->getById($id);
+        $item = $this->service->getById((int)$id);
 
-        if (!$testimonial) {
-            return Response::notFound('Testimonial not found');
+        if (!$item) {
+            return $this->notFound('Testimonial not found');
         }
 
-        return Response::success($testimonial, 'Testimonial retrieved successfully');
+        return $this->success($item, 'Testimonial retrieved successfully');
     }
 
-    public function adminIndex(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function adminIndex(): array
     {
-        $testimonials = $this->service->getAll(false);
-        return Response::success($testimonials, 'Testimonials retrieved successfully');
+        $items = $this->service->getAll(false);
+        return $this->success($items, 'Testimonials retrieved successfully');
     }
 
-    public function store(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function store(): array
     {
-        $data = $request->getParsedBody();
+        $data = $this->getRequestData();
         $result = $this->service->create($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to create testimonial');
+            return $this->error($result['error'] ?? 'Failed to create testimonial');
         }
 
-        $testimonial = $this->service->getById($result['id']);
-
-        return Response::success($testimonial, 'Testimonial created successfully', 201);
+        $item = $this->service->getById($result['id']);
+        return $this->success($item, 'Testimonial created successfully', 201);
     }
 
-    public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function update(string $id): array
     {
-        $id = (int) $args['id'];
-        $data = $request->getParsedBody();
-        
-        $result = $this->service->update($id, $data);
+        $data = $this->getRequestData();
+        $result = $this->service->update((int)$id, $data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            if ($result['error'] === 'Testimonial not found') {
-                return Response::notFound('Testimonial not found');
+            if (strpos($result['error'] ?? '', 'not found') !== false) {
+                return $this->notFound('Testimonial not found');
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update testimonial');
+            return $this->error($result['error'] ?? 'Failed to update testimonial');
         }
 
-        $testimonial = $this->service->getById($id);
-
-        return Response::success($testimonial, 'Testimonial updated successfully');
+        $item = $this->service->getById((int)$id);
+        return $this->success($item, 'Testimonial updated successfully');
     }
 
-    public function destroy(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function destroy(string $id): array
     {
-        $id = (int) $args['id'];
-        
-        $existing = $this->service->getById($id);
+        $existing = $this->service->getById((int)$id);
         if (!$existing) {
-            return Response::notFound('Testimonial not found');
+            return $this->notFound('Testimonial not found');
         }
 
-        $this->service->delete($id);
-
-        return Response::success(null, 'Testimonial deleted successfully');
+        $this->service->delete((int)$id);
+        return $this->success(null, 'Testimonial deleted successfully');
     }
 }
