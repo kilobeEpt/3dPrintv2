@@ -66,11 +66,12 @@ echo "\n";
 // Test 4: Test SimpleJWT
 echo "[4/6] Testing SimpleJWT...\n";
 try {
-    $jwt = new SimpleJWT('test-secret', 'HS256');
-    $token = $jwt->encode(['user_id' => 1], 3600);
-    $payload = $jwt->decode($token);
+    $secret = 'test-secret-key';
+    $payload = ['user_id' => 1, 'exp' => time() + 3600];
+    $token = SimpleJWT::encode($payload, $secret);
+    $decoded = SimpleJWT::decode($token, $secret);
     
-    if ($payload && $payload->user_id === 1) {
+    if ($decoded && $decoded->user_id === 1) {
         echo "  ✓ SimpleJWT works\n";
     } else {
         echo "  ✗ SimpleJWT token verification failed\n";

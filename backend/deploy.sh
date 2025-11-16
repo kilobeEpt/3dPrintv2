@@ -59,7 +59,7 @@ REQUIRED_FILES=(
     "standalone/SimpleJWT.php"
     "standalone/SimpleEnv.php"
     "standalone/autoload.php"
-    "src/Bootstrap/StandaloneApp.php"
+    "src/Bootstrap/App.php"
     "public/index.php"
     "public/.htaccess"
     ".env"

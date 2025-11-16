@@ -2,7 +2,7 @@
 # 3D Print Pro - Apache Configuration
 # ============================================
 # This file routes all requests to index.php
-# for the Slim framework to handle routing.
+# for the standalone PHP router to handle.
 # ============================================
 
 <IfModule mod_rewrite.c>
