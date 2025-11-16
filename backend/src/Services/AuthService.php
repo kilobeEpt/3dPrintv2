@@ -77,7 +77,7 @@ class AuthService
     public function verifyToken(string $token): ?object
     {
         try {
-            return SimpleJWT::decode($token, $this->jwtConfig['secret'], $this->jwtConfig['algorithm']);
+            return SimpleJWT::decode($token, $this->jwtConfig['secret'], [$this->jwtConfig['algorithm']]);
         } catch (Exception $e) {
             return null;
         }

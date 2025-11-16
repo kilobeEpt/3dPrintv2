@@ -43,8 +43,7 @@ class App
         $envFile = dirname(__DIR__, 2) . '/.env';
         
         if (file_exists($envFile)) {
-            $env = new \SimpleEnv();
-            $env->load($envFile);
+            \SimpleEnv::load($envFile);
         }
     }
 
