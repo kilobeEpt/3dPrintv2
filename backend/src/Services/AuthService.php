@@ -3,8 +3,7 @@
 namespace App\Services;
 
 use App\Config\Database;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
+use SimpleJWT;
 use PDO;
 use Exception;
 
@@ -57,7 +56,7 @@ class AuthService
             'role' => $user['role']
         ];
 
-        return JWT::encode($payload, $this->jwtConfig['secret'], $this->jwtConfig['algorithm']);
+        return SimpleJWT::encode($payload, $this->jwtConfig['secret'], $this->jwtConfig['algorithm']);
     }
 
     public function generateRefreshToken(array $user): string
@@ -72,13 +71,13 @@ class AuthService
             'type' => 'refresh'
         ];
 
-        return JWT::encode($payload, $this->jwtConfig['secret'], $this->jwtConfig['algorithm']);
+        return SimpleJWT::encode($payload, $this->jwtConfig['secret'], $this->jwtConfig['algorithm']);
     }
 
     public function verifyToken(string $token): ?object
     {
         try {
-            return JWT::decode($token, new Key($this->jwtConfig['secret'], $this->jwtConfig['algorithm']));
+            return SimpleJWT::decode($token, $this->jwtConfig['secret'], $this->jwtConfig['algorithm']);
         } catch (Exception $e) {
             return null;
         }
