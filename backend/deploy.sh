@@ -161,8 +161,8 @@ chmod 600 .env 2>/dev/null || true
 echo -e "${GREEN}✓ Permissions set${NC}"
 echo
 
-# Step 7: Test API endpoints
-echo -e "${YELLOW}[7/7] Testing API endpoints...${NC}"
+# Step 7: Run comprehensive tests
+echo -e "${YELLOW}[7/7] Running comprehensive tests...${NC}"
 
 # Try to detect base URL
 if [ -n "$APP_URL" ]; then
@@ -171,20 +171,42 @@ else
     BASE_URL="http://localhost/backend/public"
 fi
 
-echo -e "${BLUE}Testing: $BASE_URL/api/health${NC}"
-
-# Simple HTTP test (if curl available)
-if command -v curl &> /dev/null; then
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health" 2>/dev/null || echo "000")
+# Run test-all.php if available
+if [ -f "test-all.php" ] && command -v php &> /dev/null; then
+    echo -e "${BLUE}Running comprehensive test suite...${NC}"
+    echo -e "${BLUE}Command: php test-all.php $BASE_URL${NC}"
+    echo
     
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "503" ]; then
-        echo -e "${GREEN}✓ API is responding (HTTP $HTTP_CODE)${NC}"
+    # Run tests and capture exit code
+    if php test-all.php "$BASE_URL"; then
+        echo
+        echo -e "${GREEN}✓ All tests passed!${NC}"
     else
-        echo -e "${YELLOW}⚠ Could not reach API (HTTP $HTTP_CODE)${NC}"
-        echo -e "${BLUE}  This is OK if deploying to remote server${NC}"
+        TEST_EXIT_CODE=$?
+        echo
+        if [ $TEST_EXIT_CODE -eq 1 ]; then
+            echo -e "${YELLOW}⚠ Some tests failed - review output above${NC}"
+        else
+            echo -e "${RED}✗ Critical test failures detected${NC}"
+            echo -e "${YELLOW}Note: This may be normal if deploying to a remote server${NC}"
+        fi
     fi
 else
-    echo -e "${BLUE}  curl not available - skipping HTTP test${NC}"
+    # Fallback to simple health check
+    echo -e "${BLUE}Testing: $BASE_URL/api/health${NC}"
+    
+    if command -v curl &> /dev/null; then
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health" 2>/dev/null || echo "000")
+        
+        if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "503" ]; then
+            echo -e "${GREEN}✓ API is responding (HTTP $HTTP_CODE)${NC}"
+        else
+            echo -e "${YELLOW}⚠ Could not reach API (HTTP $HTTP_CODE)${NC}"
+            echo -e "${BLUE}  This is OK if deploying to remote server${NC}"
+        fi
+    else
+        echo -e "${BLUE}  curl not available - skipping HTTP test${NC}"
+    fi
 fi
 
 echo
@@ -207,13 +229,19 @@ echo -e "     ${BLUE}mysql -u$DB_USERNAME -p $DB_DATABASE < database/migrations/
 echo -e "  3. Create admin user (if automatic creation failed):"
 echo -e "     ${BLUE}php create-admin.php${NC}"
 echo -e "     ${BLUE}or: php database/seeds/seed-admin-user.php${NC}"
-echo -e "  4. Test authentication:"
+echo
+echo -e "${YELLOW}Testing commands:${NC}"
+echo -e "  1. Quick standalone test:"
+echo -e "     ${BLUE}php test-standalone.php${NC}"
+echo -e "  2. Authentication test:"
 echo -e "     ${BLUE}php test-auth.php${NC}"
-echo -e "  5. Test API: $BASE_URL/api/health"
-echo -e "  6. Run ultimate verification:"
+echo -e "  3. Comprehensive test suite:"
+echo -e "     ${BLUE}php test-all.php $BASE_URL${NC}"
+echo -e "  4. Ultimate verification:"
 echo -e "     ${BLUE}php ultimate-final-check.php $APP_URL${NC}"
 echo
-echo -e "${GREEN}Deploy to: https://3dprint-omsk.ru/${NC}"
+echo -e "${GREEN}Production URL: https://3dprint-omsk.ru/${NC}"
+echo -e "${GREEN}API URL: https://3dprint-omsk.ru/backend/public/api/${NC}"
 echo
 
 exit 0
