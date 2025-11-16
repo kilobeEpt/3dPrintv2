@@ -1,22 +1,25 @@
 #!/usr/bin/env php
 <?php
 /**
- * Seed Admin User Script
+ * Seed Admin User Script - STANDALONE MODE
  * 
  * This script creates or updates the default admin user using credentials from .env
  * Run this script after database migrations to create the initial admin account
+ * NO COMPOSER REQUIRED - uses standalone components
  * 
  * Usage: php seed-admin-user.php
  */
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../standalone/autoload.php';
+require_once __DIR__ . '/../../standalone/SimpleEnv.php';
 
-use Dotenv\Dotenv;
 use App\Config\Database;
 
 // Load environment variables
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../..');
-$dotenv->load();
+$envFile = __DIR__ . '/../../.env';
+if (file_exists($envFile)) {
+    SimpleEnv::load($envFile);
+}
 
 // Get admin credentials from environment
 $adminLogin = $_ENV['ADMIN_LOGIN'] ?? 'admin';

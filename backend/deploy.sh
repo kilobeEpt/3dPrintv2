@@ -124,14 +124,27 @@ echo -e "  ${BLUE}mysql -u$DB_USERNAME -p$DB_PASSWORD $DB_DATABASE < database/mi
 echo
 
 # Step 5: Create admin user
-echo -e "${YELLOW}[5/7] Checking admin user seeder...${NC}"
+echo -e "${YELLOW}[5/7] Creating admin user...${NC}"
 
-if [ ! -f "database/seeds/seed-admin-user.php" ]; then
-    echo -e "${YELLOW}⚠ Admin user seeder not found${NC}"
+if [ ! -f "create-admin.php" ]; then
+    echo -e "${YELLOW}⚠ create-admin.php not found, skipping${NC}"
 else
-    echo -e "${GREEN}✓ Admin seeder found${NC}"
-    echo -e "${BLUE}  Note: Run seeder manually if needed:${NC}"
-    echo -e "  ${BLUE}php database/seeds/seed-admin-user.php${NC}"
+    # Try to create admin user automatically
+    if command -v php &> /dev/null; then
+        echo -e "${BLUE}  Running: php create-admin.php${NC}"
+        
+        # Capture output and exit code
+        if php create-admin.php 2>&1; then
+            echo -e "${GREEN}✓ Admin user created/updated successfully${NC}"
+        else
+            echo -e "${YELLOW}⚠ Admin creation failed - you may need to run manually:${NC}"
+            echo -e "  ${BLUE}php create-admin.php${NC}"
+            echo -e "  ${BLUE}or: php database/seeds/seed-admin-user.php${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ PHP CLI not available - run admin creation manually:${NC}"
+        echo -e "  ${BLUE}php create-admin.php${NC}"
+    fi
 fi
 echo
 
@@ -187,14 +200,17 @@ echo -e "${BLUE}✓ Works on any hosting with PHP 7.4+${NC}"
 echo -e "${BLUE}✓ All controllers converted to standalone${NC}"
 echo -e "${BLUE}✓ Simple routing with SimpleRouter${NC}"
 echo
-echo -e "${YELLOW}Manual steps remaining:${NC}"
+echo -e "${YELLOW}Manual steps remaining (if not done automatically):${NC}"
 echo -e "  1. Update .env with your database credentials"
 echo -e "  2. Run database migration:"
 echo -e "     ${BLUE}mysql -u$DB_USERNAME -p $DB_DATABASE < database/migrations/20231113_initial.sql${NC}"
-echo -e "  3. Create admin user:"
-echo -e "     ${BLUE}php database/seeds/seed-admin-user.php${NC}"
-echo -e "  4. Test API: $BASE_URL/api/health"
-echo -e "  5. Run ultimate verification:"
+echo -e "  3. Create admin user (if automatic creation failed):"
+echo -e "     ${BLUE}php create-admin.php${NC}"
+echo -e "     ${BLUE}or: php database/seeds/seed-admin-user.php${NC}"
+echo -e "  4. Test authentication:"
+echo -e "     ${BLUE}php test-auth.php${NC}"
+echo -e "  5. Test API: $BASE_URL/api/health"
+echo -e "  6. Run ultimate verification:"
 echo -e "     ${BLUE}php ultimate-final-check.php $APP_URL${NC}"
 echo
 echo -e "${GREEN}Deploy to: https://3dprint-omsk.ru/${NC}"
