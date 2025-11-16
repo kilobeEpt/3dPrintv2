@@ -2,13 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Helpers\Response;
 use App\Services\ContentService;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class ContentController
 {
+    use BaseController;
+    
     private ContentService $service;
 
     public function __construct()
@@ -16,82 +15,74 @@ class ContentController
         $this->service = new ContentService();
     }
 
-    public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function index(): array
     {
         $content = $this->service->getAll();
-        return Response::success($content, 'Content sections retrieved successfully');
+        return $this->success($content, 'Content sections retrieved successfully');
     }
 
-    public function show(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function show(string $section): array
     {
-        $sectionKey = $args['section'];
-        $content = $this->service->getBySection($sectionKey);
+        $content = $this->service->getBySection($section);
 
         if (!$content) {
-            return Response::notFound('Content section not found');
+            return $this->notFound('Content section not found');
         }
 
-        return Response::success($content, 'Content section retrieved successfully');
+        return $this->success($content, 'Content section retrieved successfully');
     }
 
-    public function upsert(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function upsert(string $section): array
     {
-        $sectionKey = $args['section'];
-        $data = $request->getParsedBody();
-        
-        $result = $this->service->upsert($sectionKey, $data);
+        $data = $this->getRequestData();
+        $result = $this->service->upsert($section, $data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update content section');
+            return $this->error($result['error'] ?? 'Failed to update content section');
         }
 
-        $content = $this->service->getBySection($sectionKey);
-
-        return Response::success($content, 'Content section updated successfully');
+        $content = $this->service->getBySection($section);
+        return $this->success($content, 'Content section updated successfully');
     }
 
-    public function destroy(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function destroy(string $section): array
     {
-        $sectionKey = $args['section'];
-        
-        $existing = $this->service->getBySection($sectionKey);
+        $existing = $this->service->getBySection($section);
         if (!$existing) {
-            return Response::notFound('Content section not found');
+            return $this->notFound('Content section not found');
         }
 
-        $this->service->delete($sectionKey);
-
-        return Response::success(null, 'Content section deleted successfully');
+        $this->service->delete($section);
+        return $this->success(null, 'Content section deleted successfully');
     }
 
-    public function getStats(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function getStats(): array
     {
         $stats = $this->service->getStats();
         
         if (!$stats) {
-            return Response::notFound('Stats not found');
+            return $this->notFound('Stats not found');
         }
 
-        return Response::success($stats, 'Stats retrieved successfully');
+        return $this->success($stats, 'Stats retrieved successfully');
     }
 
-    public function updateStats(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function updateStats(): array
     {
-        $data = $request->getParsedBody();
+        $data = $this->getRequestData();
         $result = $this->service->updateStats($data);
 
         if (!$result['success']) {
             if (isset($result['errors'])) {
-                return Response::validationError($result['errors']);
+                return $this->validationError($result['errors']);
             }
-            return Response::badRequest($result['error'] ?? 'Failed to update stats');
+            return $this->error($result['error'] ?? 'Failed to update stats');
         }
 
         $stats = $this->service->getStats();
-
-        return Response::success($stats, 'Stats updated successfully');
+        return $this->success($stats, 'Stats updated successfully');
     }
 }

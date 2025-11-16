@@ -1,10 +1,10 @@
 <?php
 
 /**
- * 3D Print Pro - API Front Controller
+ * 3D Print Pro - API Front Controller (STANDALONE MODE)
  * 
- * This file serves as the entry point for all API requests.
- * All requests are routed through here via .htaccess (Apache) or nginx config.
+ * NO COMPOSER DEPENDENCIES REQUIRED
+ * Works with pure PHP 7.4+ on ANY hosting
  */
 
 declare(strict_types=1);
@@ -12,8 +12,8 @@ declare(strict_types=1);
 // Ensure we're returning JSON for API endpoints
 header('Content-Type: application/json; charset=utf-8');
 
-// Display errors in development (override in production)
-$isDevelopment = getenv('APP_ENV') === 'development' || (isset($_ENV['APP_DEBUG']) && $_ENV['APP_DEBUG'] === 'true');
+// Display errors in development
+$isDevelopment = (getenv('APP_ENV') === 'development') || ($_ENV['APP_DEBUG'] ?? false);
 
 if ($isDevelopment) {
     error_reporting(E_ALL);
@@ -26,19 +26,11 @@ if ($isDevelopment) {
 // Set timezone
 date_default_timezone_set('Europe/Moscow');
 
-// Require Composer autoloader
-$autoloadPath = __DIR__ . '/../vendor/autoload.php';
-if (!file_exists($autoloadPath)) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Composer dependencies not installed',
-        'details' => 'Run: composer install'
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit(1);
-}
-
-require $autoloadPath;
+// Load standalone components (NO Composer!)
+require __DIR__ . '/../standalone/autoload.php';
+require __DIR__ . '/../standalone/SimpleEnv.php';
+require __DIR__ . '/../standalone/SimpleJWT.php';
+require __DIR__ . '/../standalone/SimpleRouter.php';
 
 // Log request for debugging (only in development)
 if ($isDevelopment) {
