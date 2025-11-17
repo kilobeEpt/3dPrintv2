@@ -1225,6 +1225,78 @@ This comprehensive checklist covers all testing scenarios for manual and automat
 
 ---
 
+## 11. SEO and Indexing
+
+### Robots.txt
+- [ ] robots.txt exists in project root
+- [ ] robots.txt is accessible at https://3dprint-omsk.ru/robots.txt
+- [ ] Returns HTTP 200 status code
+- [ ] Public pages allowed (/, /index.html, /css/, /js/)
+- [ ] Admin panel blocked (/admin.html)
+- [ ] Backend API blocked (/backend/)
+- [ ] Old backend blocked (/backend_old/)
+- [ ] Service files blocked (*.md, /config.js, /.git/)
+- [ ] Documentation blocked (/docs/, /tools/)
+- [ ] Sitemap URL present in robots.txt
+- [ ] Syntax valid (use Google Robots Testing Tool)
+
+### Sitemap.xml
+- [ ] sitemap.xml exists in project root
+- [ ] sitemap.xml is accessible at https://3dprint-omsk.ru/sitemap.xml
+- [ ] Returns HTTP 200 status code
+- [ ] XML syntax is valid (use xmllint or online validator)
+- [ ] Contains all public sections (home, services, calculator, portfolio, about, contact)
+- [ ] lastmod dates are recent and accurate
+- [ ] changefreq values appropriate (daily, weekly, monthly)
+- [ ] priority values set correctly (0.7-1.0)
+- [ ] URLs use HTTPS protocol
+- [ ] Total URL count is 7
+
+### Sitemap Generation
+- [ ] tools/generate-sitemap.py exists and is executable
+- [ ] tools/generate-sitemap.php exists and is executable
+- [ ] Python script runs successfully: `python3 tools/generate-sitemap.py`
+- [ ] PHP script runs successfully (if PHP available): `php tools/generate-sitemap.php`
+- [ ] Generated sitemap matches expected structure
+- [ ] Script outputs detailed report
+- [ ] lastmod date matches index.html modification date
+
+### Deploy Integration
+- [ ] backend/deploy.sh includes sitemap generation step
+- [ ] deploy.sh checks for Python or PHP availability
+- [ ] deploy.sh successfully generates sitemap during deployment
+- [ ] deploy.sh checks for robots.txt existence
+- [ ] Sitemap generation doesn't block deployment on failure
+- [ ] Deploy summary reports sitemap status
+
+### Search Console Integration
+- [ ] Sitemap submitted to Google Search Console
+- [ ] No errors in Google Search Console coverage report
+- [ ] All URLs indexed or pending indexing
+- [ ] Sitemap submitted to Yandex Webmaster
+- [ ] No errors in Yandex indexing report
+- [ ] robots.txt validated in Google Robots Testing Tool
+
+### Indexing Verification
+- [ ] Public pages are indexable (no meta robots noindex)
+- [ ] Admin panel has noindex directive (if accessible)
+- [ ] Check site:3dprint-omsk.ru in Google
+- [ ] Main page appears in search results
+- [ ] No admin or backend pages in search results
+- [ ] Structured data validated (if implemented)
+
+### Documentation
+- [ ] docs/seo/sitemap-robots.md exists
+- [ ] Documentation covers robots.txt configuration
+- [ ] Documentation covers sitemap.xml structure
+- [ ] Documentation includes generation instructions
+- [ ] Documentation includes deployment process
+- [ ] Documentation includes validation steps
+- [ ] Documentation includes troubleshooting guide
+- [ ] Documentation includes maintenance checklist
+
+---
+
 ## Test Execution Sign-off
 
 **Tester Name:** _________________  
