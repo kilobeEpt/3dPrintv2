@@ -5,9 +5,9 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     $testimonials = $db->fetchAll('
-        SELECT *
+        SELECT id, name as author, position, rating, text as content, avatar_url, approved as active, display_order, created_at, updated_at
         FROM testimonials
-        WHERE active = 1
+        WHERE approved = 1
         ORDER BY display_order ASC, created_at DESC
     ');
     
@@ -32,8 +32,8 @@ if ($method === 'POST') {
     
     try {
         $db->execute('
-            INSERT INTO testimonials (author, position, content, rating, avatar_url, active, featured, display_order)
-            VALUES (?, ?, ?, ?, ?, 1, 0, 0)
+            INSERT INTO testimonials (name, position, text, rating, avatar_url, approved, display_order)
+            VALUES (?, ?, ?, ?, ?, 1, 0)
         ', [$author, $position, $content, $rating, $avatar_url]);
         
         $id = $db->lastInsertId();
@@ -61,7 +61,7 @@ if ($method === 'PUT') {
     try {
         $db->execute('
             UPDATE testimonials 
-            SET author = ?, position = ?, content = ?, rating = ?, avatar_url = ?
+            SET name = ?, position = ?, text = ?, rating = ?, avatar_url = ?
             WHERE id = ?
         ', [$author, $position, $content, $rating, $avatar_url, $id]);
         
@@ -79,7 +79,7 @@ if ($method === 'DELETE') {
     }
     
     try {
-        $db->execute('UPDATE testimonials SET active = 0 WHERE id = ?', [$id]);
+        $db->execute('UPDATE testimonials SET approved = 0 WHERE id = ?', [$id]);
         Response::success(null, 'Testimonial deleted successfully');
     } catch (Exception $e) {
         Response::serverError($e->getMessage());

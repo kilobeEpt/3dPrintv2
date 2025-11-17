@@ -16,30 +16,13 @@ if ($method === 'POST') {
         Response::unprocessable('Name and phone are required', ['name' => 'Name is required', 'phone' => 'Phone is required']);
     }
     
-    $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $rateLimitEnabled = ($_ENV['RATE_LIMIT_ENABLED'] ?? 'true') === 'true';
-    
-    if ($rateLimitEnabled) {
-        $maxRequests = (int)($_ENV['RATE_LIMIT_MAX_REQUESTS'] ?? 5);
-        $window = (int)($_ENV['RATE_LIMIT_WINDOW'] ?? 3600);
-        
-        $count = $db->fetchOne(
-            'SELECT COUNT(*) as count FROM orders WHERE client_ip = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)',
-            [$clientIp, $window]
-        );
-        
-        if ($count && $count['count'] >= $maxRequests) {
-            Response::error('Too many requests. Please try again later.', 429);
-        }
-    }
-    
     try {
         $orderNumber = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(md5(uniqid()), 0, 6));
         
         $db->execute('
-            INSERT INTO orders (order_number, name, email, phone, message, calculator_data, status, client_ip)
-            VALUES (?, ?, ?, ?, ?, ?, "new", ?)
-        ', [$orderNumber, $name, $email, $phone, $message, $calculator_data, $clientIp]);
+            INSERT INTO orders (order_number, client_name, client_email, client_phone, message, calculator_data, status)
+            VALUES (?, ?, ?, ?, ?, ?, "new")
+        ', [$orderNumber, $name, $email, $phone, $message, $calculator_data]);
         
         $orderId = $db->lastInsertId();
         
