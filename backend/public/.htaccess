@@ -1,78 +1,25 @@
-# ============================================
-# 3D Print Pro - Apache Configuration
-# ============================================
-# This file routes all requests to index.php
-# for the standalone PHP router to handle.
-# ============================================
+# Enable rewrite engine
+RewriteEngine On
 
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    
-    # Set base path (adjust if installed in subdirectory)
-    RewriteBase /backend/public/
-    
-    # Handle Authorization header for JWT
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-    
-    # Send requests to index.php if not a real file/directory
-    # This is the ONLY rewrite rule - no redirects!
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.php [QSA,L]
-</IfModule>
+# Pass Authorization header
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-# ============================================
-# Security Headers
-# ============================================
+# Handle all requests through index.php
+# CRITICAL: NO R=301 or R=302 flags!
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA]
 
-<IfModule mod_headers.c>
-    # Prevent MIME type sniffing
-    Header set X-Content-Type-Options "nosniff"
-    
-    # Enable XSS protection
-    Header set X-XSS-Protection "1; mode=block"
-    
-    # Prevent clickjacking
-    Header set X-Frame-Options "SAMEORIGIN"
-    
-    # HSTS (optional, enable in production with SSL)
-    # Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
-</IfModule>
-
-# ============================================
-# Compression
-# ============================================
-
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE application/json
-    AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/plain
-    AddOutputFilterByType DEFLATE text/xml
-</IfModule>
-
-# ============================================
-# Caching
-# ============================================
-
-<IfModule mod_expires.c>
-    ExpiresActive On
-    # API responses should not be cached
-    ExpiresByType application/json "access plus 0 seconds"
-</IfModule>
-
-# ============================================
-# Deny Access to Sensitive Files
-# ============================================
-
-<FilesMatch "^\.">
+# Security: Block access to .env and other sensitive files
+<Files ".env">
     Order allow,deny
     Deny from all
-</FilesMatch>
+</Files>
 
-<FilesMatch "(composer\.json|composer\.lock|\.env)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
+# Disable directory listing
+Options -Indexes
+
+# Set PHP settings
+php_flag display_errors Off
+php_value error_reporting 0

@@ -4,15 +4,14 @@
 
 class AdminAPIClient {
     constructor() {
-        // Configure API base URL from meta tag or default to relative path
-        const metaTag = document.querySelector('meta[name="api-base-url"]');
-        this.baseURL = metaTag ? metaTag.getAttribute('content') : '';
+        // Configure API base URL - new backend location
+        this.baseURL = '/backend/public';
         
         // Token storage keys
         this.TOKEN_KEY = 'admin_access_token';
         this.REFRESH_TOKEN_KEY = 'admin_refresh_token';
         
-        console.log('✅ Admin API Client initialized with base URL:', this.baseURL || '(relative path)');
+        console.log('✅ Admin API Client initialized with base URL:', this.baseURL);
     }
 
     /**
