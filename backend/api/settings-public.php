@@ -2,7 +2,7 @@
 
 $db = Database::getInstance();
 
-$settings = $db->fetchOne('SELECT calculator_config FROM site_settings LIMIT 1');
+$settings = $db->fetchOne('SELECT * FROM site_settings LIMIT 1');
 
 if (!$settings) {
     Response::success([
@@ -11,8 +11,23 @@ if (!$settings) {
         'qualityMultipliers' => [],
         'discounts' => []
     ]);
+    return;
 }
 
-$config = json_decode($settings['calculator_config'], true);
+// Parse JSON fields if they exist
+$result = [
+    'materialPrices' => [],
+    'servicePrices' => [],
+    'qualityMultipliers' => [],
+    'discounts' => []
+];
 
-Response::success($config);
+// If social_links or notifications exist as JSON, decode them
+if (isset($settings['social_links'])) {
+    $result['social_links'] = json_decode($settings['social_links'], true);
+}
+if (isset($settings['notifications'])) {
+    $result['notifications'] = json_decode($settings['notifications'], true);
+}
+
+Response::success($result);

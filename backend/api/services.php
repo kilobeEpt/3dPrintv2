@@ -6,9 +6,9 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     $services = $db->fetchAll('
         SELECT s.*, 
-               GROUP_CONCAT(sf.feature ORDER BY sf.display_order SEPARATOR "|||") as features
+               GROUP_CONCAT(sf.feature_text ORDER BY sf.display_order SEPARATOR "|||") as features
         FROM services s
-        LEFT JOIN service_features sf ON s.id = sf.service_id AND sf.active = 1
+        LEFT JOIN service_features sf ON s.id = sf.service_id
         WHERE s.active = 1
         GROUP BY s.id
         ORDER BY s.display_order ASC, s.id ASC
@@ -53,8 +53,8 @@ if ($method === 'POST') {
         foreach ($features as $index => $feature) {
             if (!empty($feature)) {
                 $db->execute('
-                    INSERT INTO service_features (service_id, feature, display_order, active)
-                    VALUES (?, ?, ?, 1)
+                    INSERT INTO service_features (service_id, feature_text, display_order)
+                    VALUES (?, ?, ?)
                 ', [$serviceId, $feature, $index]);
             }
         }
@@ -92,8 +92,8 @@ if ($method === 'PUT') {
         foreach ($features as $index => $feature) {
             if (!empty($feature)) {
                 $db->execute('
-                    INSERT INTO service_features (service_id, feature, display_order, active)
-                    VALUES (?, ?, ?, 1)
+                    INSERT INTO service_features (service_id, feature_text, display_order)
+                    VALUES (?, ?, ?)
                 ', [$id, $feature, $index]);
             }
         }

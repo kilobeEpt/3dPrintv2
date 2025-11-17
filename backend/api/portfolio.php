@@ -7,8 +7,7 @@ if ($method === 'GET') {
     $portfolio = $db->fetchAll('
         SELECT *
         FROM portfolio
-        WHERE active = 1
-        ORDER BY display_order ASC, created_at DESC
+        ORDER BY created_at DESC
     ');
     
     Response::success($portfolio);
@@ -32,8 +31,8 @@ if ($method === 'POST') {
     
     try {
         $db->execute('
-            INSERT INTO portfolio (title, category, description, image_url, details, active, display_order)
-            VALUES (?, ?, ?, ?, ?, 1, 0)
+            INSERT INTO portfolio (title, category, description, image_url, details)
+            VALUES (?, ?, ?, ?, ?)
         ', [$title, $category, $description, $image_url, $details]);
         
         $id = $db->lastInsertId();
@@ -79,7 +78,7 @@ if ($method === 'DELETE') {
     }
     
     try {
-        $db->execute('UPDATE portfolio SET active = 0 WHERE id = ?', [$id]);
+        $db->execute('DELETE FROM portfolio WHERE id = ?', [$id]);
         Response::success(null, 'Portfolio item deleted successfully');
     } catch (Exception $e) {
         Response::serverError($e->getMessage());

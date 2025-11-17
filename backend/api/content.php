@@ -4,11 +4,14 @@ $db = Database::getInstance();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
-    $content = $db->fetchAll('SELECT * FROM site_content WHERE active = 1');
+    $content = $db->fetchAll('SELECT section_key, title, content FROM site_content');
     
     $result = [];
     foreach ($content as $item) {
-        $result[$item['key']] = $item['value'];
+        $result[$item['section_key']] = [
+            'title' => $item['title'],
+            'content' => json_decode($item['content'], true)
+        ];
     }
     
     Response::success($result);
@@ -25,13 +28,16 @@ if ($method === 'PUT') {
     }
     
     try {
-        foreach ($input as $key => $value) {
-            $existing = $db->fetchOne('SELECT id FROM site_content WHERE `key` = ?', [$key]);
+        foreach ($input as $key => $data) {
+            $title = $data['title'] ?? '';
+            $content = is_array($data['content']) ? json_encode($data['content'], JSON_UNESCAPED_UNICODE) : $data['content'];
+            
+            $existing = $db->fetchOne('SELECT id FROM site_content WHERE section_key = ?', [$key]);
             
             if ($existing) {
-                $db->execute('UPDATE site_content SET value = ? WHERE `key` = ?', [$value, $key]);
+                $db->execute('UPDATE site_content SET title = ?, content = ? WHERE section_key = ?', [$title, $content, $key]);
             } else {
-                $db->execute('INSERT INTO site_content (`key`, value, active) VALUES (?, ?, 1)', [$key, $value]);
+                $db->execute('INSERT INTO site_content (section_key, title, content) VALUES (?, ?, ?)', [$key, $title, $content]);
             }
         }
         
