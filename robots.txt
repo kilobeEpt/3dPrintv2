@@ -1,0 +1,37 @@
+# robots.txt для 3D Print Pro
+# Генерируется автоматически при деплое
+
+User-agent: *
+
+# Разрешаем публичные страницы
+Allow: /
+Allow: /index.html
+Allow: /*.css
+Allow: /*.js
+Allow: /css/
+Allow: /js/
+
+# Блокируем административные разделы
+Disallow: /admin.html
+Disallow: /backend/
+Disallow: /backend_old/
+
+# Блокируем служебные файлы
+Disallow: /*.md
+Disallow: /config.js
+Disallow: /.git/
+Disallow: /.gitignore
+
+# Блокируем документацию и технические файлы
+Disallow: /docs/
+Disallow: /tools/
+Disallow: /QUICKSTART*
+Disallow: /README*
+Disallow: /*SUMMARY*
+Disallow: /*CHECKLIST*
+Disallow: /*IMPLEMENTATION*
+Disallow: /*DEPLOYMENT*
+Disallow: /*MIGRATION*
+
+# Sitemap
+Sitemap: https://3dprint-omsk.ru/sitemap.xml

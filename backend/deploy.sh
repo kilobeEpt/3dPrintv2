@@ -92,6 +92,45 @@ else
 fi
 
 echo ""
+echo "📋 Step 7: Generating sitemap.xml..."
+echo "─────────────────────────────────────────────────────────────────"
+
+# Используем Python версию (универсально)
+if command -v python3 &> /dev/null; then
+    cd .. && python3 tools/generate-sitemap.py https://3dprint-omsk.ru > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        cd backend
+        echo -e "${GREEN}✅ sitemap.xml generated (Python)${NC}"
+    else
+        cd backend
+        echo -e "${YELLOW}⚠️  sitemap.xml generation failed${NC}"
+        ((ERRORS++))
+    fi
+# Fallback на PHP версию
+elif command -v php &> /dev/null; then
+    cd .. && php tools/generate-sitemap.php https://3dprint-omsk.ru > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        cd backend
+        echo -e "${GREEN}✅ sitemap.xml generated (PHP)${NC}"
+    else
+        cd backend
+        echo -e "${YELLOW}⚠️  sitemap.xml generation failed${NC}"
+        ((ERRORS++))
+    fi
+else
+    echo -e "${YELLOW}⚠️  Neither Python nor PHP found, skipping sitemap generation${NC}"
+fi
+
+# Проверка наличия robots.txt
+cd ..
+if [ -f "robots.txt" ]; then
+    echo -e "${GREEN}✅ robots.txt exists${NC}"
+else
+    echo -e "${YELLOW}⚠️  robots.txt not found${NC}"
+fi
+cd backend
+
+echo ""
 echo "═══════════════════════════════════════════════════════════════════"
 echo "📊 DEPLOYMENT SUMMARY"
 echo "═══════════════════════════════════════════════════════════════════"
