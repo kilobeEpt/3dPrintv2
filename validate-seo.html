@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Metadata Validator - 3D Print Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .status.success {
+            background: #10b981;
+            color: white;
+        }
+
+        .status.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status.warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .meta-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .meta-label {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .meta-value {
+            color: #333;
+            word-break: break-word;
+            font-size: 16px;
+        }
+
+        .meta-value.empty {
+            color: #ef4444;
+            font-style: italic;
+        }
+
+        .meta-stats {
+            display: inline-block;
+            margin-left: 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .meta-stats.warning {
+            color: #f59e0b;
+        }
+
+        .meta-stats.error {
+            color: #ef4444;
+        }
+
+        .meta-stats.success {
+            color: #10b981;
+        }
+
+        .validation-list {
+            list-style: none;
+        }
+
+        .validation-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+        }
+
+        .validation-list li.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .validation-list li.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .validation-list li.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .validation-list li::before {
+            content: '●';
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .json-export {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            max-height: 400px;
+            display: none;
+        }
+
+        .json-export.show {
+            display: block;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 SEO Metadata Validator</h1>
+            <p class="subtitle">Проверка и валидация SEO метаданных для 3D Print Pro</p>
+        </header>
+
+        <div class="card">
+            <h2>📊 Общая статистика</h2>
+            <div class="grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalPages">-</div>
+                    <div class="stat-label">Страниц настроено</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="validationStatus">-</div>
+                    <div class="stat-label">Статус валидации</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="errorCount">-</div>
+                    <div class="stat-label">Ошибок</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="warningCount">-</div>
+                    <div class="stat-label">Предупреждений</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>✅ Результаты валидации</h2>
+            <div id="validationResults">
+                <p style="color: #6b7280;">Загрузка...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📄 Текущие метаданные</h2>
+            <div id="currentMetadata">
+                <p style="color: #6b7280;">Загрузка...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🗂 Все настроенные страницы</h2>
+            <div id="allPages">
+                <p style="color: #6b7280;">Загрузка...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🔧 Действия</h2>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="revalidate()">🔄 Повторная валидация</button>
+                <button class="btn btn-secondary" onclick="toggleExport()">📋 Экспорт JSON</button>
+                <button class="btn btn-secondary" onclick="checkStructuredData()">🏷 Проверить Schema</button>
+            </div>
+            <div id="jsonExport" class="json-export"></div>
+        </div>
+
+        <footer>
+            <p>3D Print Pro SEO Validator v1.0.0 | Обновлено: <span id="updateDate">-</span></p>
+        </footer>
+    </div>
+
+    <script>
+        let seoConfig = null;
+        let currentMetadata = null;
+        let validation = null;
+
+        async function init() {
+            try {
+                // Загрузить конфигурацию
+                const response = await fetch('/config/seo-metadata.json');
+                seoConfig = await response.json();
+
+                // Обновить дату
+                document.getElementById('updateDate').textContent = seoConfig.lastUpdated || 'неизвестно';
+
+                // Получить текущие метаданные
+                currentMetadata = {
+                    title: document.title,
+                    description: document.querySelector('meta[name="description"]')?.content || '',
+                    keywords: document.querySelector('meta[name="keywords"]')?.content || '',
+                    canonical: document.querySelector('link[rel="canonical"]')?.href || '',
+                    ogTitle: document.querySelector('meta[property="og:title"]')?.content || '',
+                    ogDescription: document.querySelector('meta[property="og:description"]')?.content || '',
+                    ogImage: document.querySelector('meta[property="og:image"]')?.content || '',
+                    twitterCard: document.querySelector('meta[name="twitter:card"]')?.content || ''
+                };
+
+                // Валидация
+                validation = validateMetadata();
+
+                // Отобразить результаты
+                displayStats();
+                displayValidationResults();
+                displayCurrentMetadata();
+                displayAllPages();
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                document.getElementById('validationResults').innerHTML = 
+                    '<p class="status error">❌ Ошибка загрузки конфигурации</p>';
+            }
+        }
+
+        function validateMetadata() {
+            const errors = [];
+            const warnings = [];
+
+            // Проверка title
+            if (!currentMetadata.title) {
+                errors.push('Отсутствует title');
+            } else {
+                if (currentMetadata.title.length < 30) {
+                    warnings.push('Title слишком короткий (< 30 символов)');
+                }
+                if (currentMetadata.title.length > 60) {
+                    warnings.push('Title слишком длинный (> 60 символов)');
+                }
+            }
+
+            // Проверка description
+            if (!currentMetadata.description) {
+                errors.push('Отсутствует description');
+            } else {
+                if (currentMetadata.description.length < 120) {
+                    warnings.push('Description слишком короткий (< 120 символов)');
+                }
+                if (currentMetadata.description.length > 160) {
+                    warnings.push('Description слишком длинный (> 160 символов)');
+                }
+            }
+
+            // Проверка canonical
+            if (!currentMetadata.canonical) {
+                errors.push('Отсутствует canonical URL');
+            }
+
+            // Проверка OG тегов
+            if (!currentMetadata.ogTitle) errors.push('Отсутствует og:title');
+            if (!currentMetadata.ogDescription) errors.push('Отсутствует og:description');
+            if (!currentMetadata.ogImage) errors.push('Отсутствует og:image');
+
+            // Проверка Twitter Card
+            if (!currentMetadata.twitterCard) warnings.push('Отсутствует twitter:card');
+
+            return {
+                valid: errors.length === 0,
+                errors: errors,
+                warnings: warnings
+            };
+        }
+
+        function displayStats() {
+            const pages = seoConfig.pages ? Object.keys(seoConfig.pages).length : 0;
+            document.getElementById('totalPages').textContent = pages;
+            document.getElementById('validationStatus').textContent = validation.valid ? '✅' : '❌';
+            document.getElementById('errorCount').textContent = validation.errors.length;
+            document.getElementById('warningCount').textContent = validation.warnings.length;
+        }
+
+        function displayValidationResults() {
+            let html = '';
+
+            if (validation.valid) {
+                html = '<p class="status success">✅ Все проверки пройдены успешно!</p>';
+            } else {
+                html = '<p class="status error">❌ Обнаружены ошибки</p>';
+            }
+
+            if (validation.errors.length > 0) {
+                html += '<h3 style="color: #ef4444; margin-top: 20px;">Ошибки:</h3>';
+                html += '<ul class="validation-list">';
+                validation.errors.forEach(error => {
+                    html += `<li class="error">${error}</li>`;
+                });
+                html += '</ul>';
+            }
+
+            if (validation.warnings.length > 0) {
+                html += '<h3 style="color: #f59e0b; margin-top: 20px;">Предупреждения:</h3>';
+                html += '<ul class="validation-list">';
+                validation.warnings.forEach(warning => {
+                    html += `<li class="warning">${warning}</li>`;
+                });
+                html += '</ul>';
+            }
+
+            if (validation.valid && validation.warnings.length === 0) {
+                html += '<ul class="validation-list">';
+                html += '<li class="success">Title корректной длины</li>';
+                html += '<li class="success">Description корректной длины</li>';
+                html += '<li class="success">Canonical URL установлен</li>';
+                html += '<li class="success">Open Graph теги присутствуют</li>';
+                html += '<li class="success">Twitter Card настроен</li>';
+                html += '</ul>';
+            }
+
+            document.getElementById('validationResults').innerHTML = html;
+        }
+
+        function displayCurrentMetadata() {
+            let html = '';
+
+            const items = [
+                { label: 'Title', value: currentMetadata.title, max: 60 },
+                { label: 'Description', value: currentMetadata.description, max: 160 },
+                { label: 'Keywords', value: currentMetadata.keywords, max: null },
+                { label: 'Canonical URL', value: currentMetadata.canonical, max: null },
+                { label: 'OG Title', value: currentMetadata.ogTitle, max: 95 },
+                { label: 'OG Description', value: currentMetadata.ogDescription, max: 200 },
+                { label: 'OG Image', value: currentMetadata.ogImage, max: null },
+                { label: 'Twitter Card', value: currentMetadata.twitterCard, max: null }
+            ];
+
+            items.forEach(item => {
+                const length = item.value ? item.value.length : 0;
+                const isEmpty = !item.value || item.value.trim() === '';
+                
+                let stats = '';
+                if (!isEmpty && item.max) {
+                    const percent = (length / item.max) * 100;
+                    let statsClass = 'success';
+                    if (percent > 100) statsClass = 'error';
+                    else if (percent < 50) statsClass = 'warning';
+                    
+                    stats = `<span class="meta-stats ${statsClass}">(${length}/${item.max} символов)</span>`;
+                } else if (!isEmpty) {
+                    stats = `<span class="meta-stats">(${length} символов)</span>`;
+                }
+
+                html += `
+                    <div class="meta-item">
+                        <div class="meta-label">${item.label} ${stats}</div>
+                        <div class="meta-value ${isEmpty ? 'empty' : ''}">${isEmpty ? 'Не установлено' : item.value}</div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('currentMetadata').innerHTML = html;
+        }
+
+        function displayAllPages() {
+            if (!seoConfig.pages) {
+                document.getElementById('allPages').innerHTML = '<p style="color: #ef4444;">Страницы не настроены</p>';
+                return;
+            }
+
+            let html = '';
+            Object.keys(seoConfig.pages).forEach(pageKey => {
+                const page = seoConfig.pages[pageKey];
+                html += `
+                    <div class="meta-item">
+                        <div class="meta-label">📄 ${pageKey}</div>
+                        <div class="meta-value">
+                            <strong>Title:</strong> ${page.title || 'не указан'}<br>
+                            <strong>Description:</strong> ${page.description || 'не указано'}<br>
+                            <strong>Canonical:</strong> ${page.canonical || 'не указан'}
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('allPages').innerHTML = html;
+        }
+
+        function revalidate() {
+            validation = validateMetadata();
+            displayStats();
+            displayValidationResults();
+        }
+
+        function toggleExport() {
+            const exportDiv = document.getElementById('jsonExport');
+            if (exportDiv.classList.contains('show')) {
+                exportDiv.classList.remove('show');
+            } else {
+                const data = {
+                    config: seoConfig,
+                    currentMetadata: currentMetadata,
+                    validation: validation
+                };
+                exportDiv.textContent = JSON.stringify(data, null, 2);
+                exportDiv.classList.add('show');
+            }
+        }
+
+        function checkStructuredData() {
+            const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+            if (scripts.length === 0) {
+                alert('❌ Структурированные данные не найдены');
+                return;
+            }
+
+            let html = '<h3 style="margin-top: 20px;">Найдено структурированных данных: ' + scripts.length + '</h3>';
+            scripts.forEach((script, index) => {
+                try {
+                    const data = JSON.parse(script.textContent);
+                    html += `
+                        <div class="meta-item">
+                            <div class="meta-label">Schema #${index + 1}: ${data['@type'] || 'Unknown'}</div>
+                            <div class="meta-value">
+                                <pre style="background: #1f2937; color: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${JSON.stringify(data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                } catch (e) {
+                    html += `<p style="color: #ef4444;">Ошибка парсинга Schema #${index + 1}</p>`;
+                }
+            });
+
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; overflow-y: auto; padding: 40px;';
+            modal.innerHTML = `
+                <div style="max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px;">
+                    <h2 style="color: #667eea; margin-bottom: 20px;">🏷 Структурированные данные (JSON-LD)</h2>
+                    ${html}
+                    <button class="btn btn-primary" onclick="this.parentElement.parentElement.remove()">Закрыть</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Инициализация при загрузке
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

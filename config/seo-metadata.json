@@ -1,0 +1,222 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2024-01-15",
+  "default": {
+    "lang": "ru",
+    "charset": "UTF-8",
+    "viewport": "width=device-width, initial-scale=1.0",
+    "themeColor": "#6366f1",
+    "robots": "index, follow",
+    "author": "3D Print Pro",
+    "copyright": "© 2024 3D Print Pro. Все права защищены.",
+    "siteUrl": "https://3dprint-omsk.ru",
+    "siteName": "3D Print Pro",
+    "logo": "https://3dprint-omsk.ru/images/logo.png",
+    "organizationType": "LocalBusiness",
+    "locale": "ru_RU",
+    "localeAlternate": []
+  },
+  "pages": {
+    "home": {
+      "title": "3D Print Pro - Профессиональная 3D печать в Омске",
+      "description": "Профессиональная 3D печать любой сложности в Омске. FDM, SLA, SLS технологии. Быстро, качественно, доступно. От прототипирования до серийного производства.",
+      "keywords": "3D печать Омск, FDM печать, SLA печать, прототипирование, 3D моделирование, аддитивные технологии, быстрое прототипирование, серийная печать",
+      "canonical": "https://3dprint-omsk.ru/",
+      "ogType": "website",
+      "ogTitle": "3D Print Pro - Профессиональная 3D печать в Омске",
+      "ogDescription": "Профессиональная 3D печать любой сложности. FDM, SLA, SLS технологии. Более 1500 выполненных проектов. Быстро, качественно, доступно.",
+      "ogImage": "https://3dprint-omsk.ru/images/og-home.jpg",
+      "ogImageWidth": "1200",
+      "ogImageHeight": "630",
+      "ogImageAlt": "3D Print Pro - Профессиональная 3D печать",
+      "twitterCard": "summary_large_image",
+      "twitterTitle": "3D Print Pro - Профессиональная 3D печать в Омске",
+      "twitterDescription": "Профессиональная 3D печать любой сложности. FDM, SLA, SLS технологии. Более 1500 выполненных проектов.",
+      "twitterImage": "https://3dprint-omsk.ru/images/twitter-home.jpg",
+      "twitterImageAlt": "3D Print Pro - Профессиональная 3D печать"
+    },
+    "services": {
+      "title": "Услуги 3D печати - 3D Print Pro",
+      "description": "Полный спектр услуг 3D печати: FDM, SLA, SLS технологии, 3D моделирование, постобработка, покраска. Профессиональное качество и быстрые сроки.",
+      "keywords": "услуги 3D печати, FDM печать цена, SLA печать стоимость, 3D моделирование на заказ, постобработка 3D печати, покраска 3D моделей",
+      "canonical": "https://3dprint-omsk.ru/#services",
+      "ogType": "website",
+      "ogTitle": "Услуги 3D печати - FDM, SLA, SLS | 3D Print Pro",
+      "ogDescription": "Полный спектр услуг 3D печати для бизнеса и частных лиц. 15+ материалов, 3 технологии печати, профессиональная постобработка.",
+      "ogImage": "https://3dprint-omsk.ru/images/og-services.jpg"
+    },
+    "calculator": {
+      "title": "Калькулятор стоимости 3D печати - 3D Print Pro",
+      "description": "Рассчитайте стоимость 3D печати онлайн. Выберите технологию, материал, параметры печати и получите мгновенный расчет. Прозрачное ценообразование.",
+      "keywords": "калькулятор 3D печати, расчет стоимости 3D печати, цена 3D печати онлайн, калькулятор FDM печати, расчет SLA печати",
+      "canonical": "https://3dprint-omsk.ru/#calculator",
+      "ogType": "website",
+      "ogTitle": "Калькулятор стоимости 3D печати | 3D Print Pro",
+      "ogDescription": "Моментальный расчет стоимости 3D печати. Выберите технологию, материал и параметры - получите точную цену и сроки изготовления.",
+      "ogImage": "https://3dprint-omsk.ru/images/og-calculator.jpg"
+    },
+    "portfolio": {
+      "title": "Портфолио - Наши работы по 3D печати | 3D Print Pro",
+      "description": "Примеры выполненных проектов 3D печати: прототипы, функциональные изделия, художественные работы, промышленные детали. Более 1500 успешных проектов.",
+      "keywords": "портфолио 3D печати, примеры 3D печати, работы 3D печать, проекты 3D печати, прототипы 3D печать",
+      "canonical": "https://3dprint-omsk.ru/#portfolio",
+      "ogType": "website",
+      "ogTitle": "Портфолио 3D печати - 1500+ выполненных проектов | 3D Print Pro",
+      "ogDescription": "Примеры реализованных проектов различной сложности: от прототипов до серийного производства. Посмотрите, что мы можем сделать для вас.",
+      "ogImage": "https://3dprint-omsk.ru/images/og-portfolio.jpg"
+    },
+    "about": {
+      "title": "О компании - 3D Print Pro | 12+ лет в 3D печати",
+      "description": "3D Print Pro - лидеры в области 3D печати в Омске. 12+ лет опыта, современное оборудование, опытная команда из 15 специалистов. Гарантия качества.",
+      "keywords": "о компании 3D печать, 3D печать Омск компания, лидеры 3D печати, профессиональная 3D печать",
+      "canonical": "https://3dprint-omsk.ru/#about",
+      "ogType": "website",
+      "ogTitle": "О компании 3D Print Pro - 12+ лет опыта в 3D печати",
+      "ogDescription": "Команда профессионалов с 12-летним опытом в области аддитивных технологий. Современное оборудование, гарантия качества, более 1500 проектов.",
+      "ogImage": "https://3dprint-omsk.ru/images/og-about.jpg"
+    },
+    "contact": {
+      "title": "Контакты - Связаться с 3D Print Pro",
+      "description": "Контакты 3D Print Pro в Омске: телефон, email, Telegram, адрес офиса. Работаем пн-пт 9:00-18:00. Ответим на все вопросы и поможем с проектом.",
+      "keywords": "контакты 3D печать Омск, 3D печать телефон, заказать 3D печать, связаться 3D Print Pro",
+      "canonical": "https://3dprint-omsk.ru/#contact",
+      "ogType": "website",
+      "ogTitle": "Контакты 3D Print Pro - Свяжитесь с нами",
+      "ogDescription": "Свяжитесь с нами для консультации и заказа 3D печати. Телефон, email, Telegram. Офис в Омске. Работаем пн-пт 9:00-18:00.",
+      "ogImage": "https://3dprint-omsk.ru/images/og-contact.jpg"
+    }
+  },
+  "structuredData": {
+    "organization": {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "3D Print Pro",
+      "image": "https://3dprint-omsk.ru/images/logo.png",
+      "description": "Профессиональная 3D печать любой сложности в Омске. FDM, SLA, SLS технологии.",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "ул. Примерная, д. 123",
+        "addressLocality": "Омск",
+        "addressRegion": "Омская область",
+        "postalCode": "644000",
+        "addressCountry": "RU"
+      },
+      "telephone": "+7 (999) 123-45-67",
+      "email": "info@3dprintpro.ru",
+      "url": "https://3dprint-omsk.ru",
+      "priceRange": "$$",
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          "opens": "09:00",
+          "closes": "18:00"
+        }
+      ],
+      "sameAs": [
+        "https://t.me/PrintPro_Omsk"
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "reviewCount": "850"
+      }
+    },
+    "breadcrumbs": {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Главная",
+          "item": "https://3dprint-omsk.ru/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Услуги",
+          "item": "https://3dprint-omsk.ru/#services"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Калькулятор",
+          "item": "https://3dprint-omsk.ru/#calculator"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Портфолио",
+          "item": "https://3dprint-omsk.ru/#portfolio"
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "name": "О нас",
+          "item": "https://3dprint-omsk.ru/#about"
+        },
+        {
+          "@type": "ListItem",
+          "position": 6,
+          "name": "Контакты",
+          "item": "https://3dprint-omsk.ru/#contact"
+        }
+      ]
+    },
+    "service": {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "serviceType": "3D Printing Services",
+      "provider": {
+        "@type": "LocalBusiness",
+        "name": "3D Print Pro"
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Омск"
+      },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "3D Printing Services",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "FDM 3D печать"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "SLA 3D печать"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "SLS 3D печать"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "3D моделирование"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "socialMedia": {
+    "telegram": "https://t.me/PrintPro_Omsk"
+  },
+  "verification": {
+    "googleSiteVerification": "",
+    "yandexVerification": ""
+  }
+}

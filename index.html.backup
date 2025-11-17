@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Профессиональная 3D печать любой сложности. Быстро, качественно, доступно.">
+    <meta name="keywords" content="3D печать, FDM, SLA, прототипирование, 3D моделирование">
     <title>3D Print Pro - Профессиональная 3D печать</title>
     
     <!-- Быстрое скрытие прелоадера -->
@@ -22,17 +24,12 @@
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/animations.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖨️</text></svg>">
 </head>
-    <!-- SEO Metadata Manager -->
-    <script src="js/seo-metadata.js"></script>
 <body>
-    <!-- Skip Navigation Link for Accessibility -->
-    <a href="#main-content" class="skip-link">Перейти к содержанию</a>
-
     <!-- Preloader -->
     <div class="preloader" id="preloader">
         <div class="loader">
@@ -74,10 +71,6 @@
             </div>
         </nav>
     </header>
-    
-    <!-- Main Content -->
-    <main id="main-content" role="main">
-
 
     <!-- Hero Section -->
     <section class="hero" id="home">
@@ -543,10 +536,6 @@
             </div>
         </div>
     </section>
-
-    
-    </main>
-    <!-- End Main Content -->
 
     <!-- Footer -->
     <footer class="footer">
